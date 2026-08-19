@@ -9,7 +9,8 @@
   --charcoal:#171614; --charcoal-2:#201E1B; --charcoal-3:#2B2824; --charcoal-4:#38342E;
   --amber:#D9A441; --amber-bright:#F0C267; --sage:#4A8A63; --rust:#C25439; --plum:#9C7BB0;
   --slate:#9A968B; --slate-dim:#6E6A61; --ticket:#F4F0E6; --ticket-line:#DED6C1; --white:#F7F5EF;
-  --font-display:Georgia,'Times New Roman',serif; --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+  --font-display:"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,'Times New Roman',serif;
+  --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --font-mono:'Courier New',monospace; --radius:5px;
 }
 *{box-sizing:border-box; margin:0; padding:0;}
@@ -22,34 +23,58 @@ button{ cursor:pointer; }
 ::-webkit-scrollbar-thumb:hover{ background:rgba(217,164,65,0.4); }
 
 /* ===== LOGIN ===== */
-#loginScreen{
-  position:fixed; inset:0; background:var(--charcoal); display:flex; flex-direction:column;
-  align-items:center; justify-content:center; z-index:1000; gap:26px;
+#loginScreen{ position:fixed; inset:0; background:var(--charcoal); display:flex; z-index:1000; }
+.login-panel-brand{
+  width:380px; flex-shrink:0; background:linear-gradient(165deg, var(--charcoal-2), var(--charcoal) 75%);
+  border-right:1px solid rgba(217,164,65,0.16); display:flex; flex-direction:column; justify-content:space-between; padding:46px 40px;
 }
-.login-brand{ text-align:center; }
-.login-brand .n{ font-family:var(--font-display); font-size:32px; font-weight:700; }
-.login-brand .s{ font-family:var(--font-mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--amber); margin-top:4px; }
-.user-grid{ display:flex; gap:14px; flex-wrap:wrap; justify-content:center; max-width:640px; }
+.login-panel-brand .mark{ width:44px; height:44px; border:1.5px solid var(--amber); border-radius:10px; display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-size:17px; font-weight:700; color:var(--amber); }
+.login-panel-brand .n{ font-family:var(--font-display); font-size:33px; font-weight:700; letter-spacing:-.01em; line-height:1.18; margin-top:20px; }
+.login-panel-brand .s{ font-family:var(--font-mono); font-size:10.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--amber); margin-top:9px; }
+.login-panel-brand .rule{ width:52px; height:2px; background:var(--amber); margin-top:24px; opacity:.55; }
+.login-panel-brand .foot .d{ font-size:10.5px; color:var(--slate-dim); text-transform:uppercase; letter-spacing:.09em; margin-bottom:6px; }
+.login-panel-brand .foot .t{ font-family:var(--font-mono); font-size:24px; color:var(--white); font-variant-numeric:tabular-nums; letter-spacing:.01em; }
+
+.login-panel-main{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px; gap:22px; overflow-y:auto; }
+.login-step-label{ font-family:var(--font-mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--slate-dim); text-align:center; margin-bottom:20px; }
+.user-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; max-width:640px; width:100%; }
 .user-card{
-  background:var(--charcoal-2); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:18px 22px;
-  width:150px; text-align:center; transition:all .15s ease;
+  background:var(--charcoal-2); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:20px 18px;
+  text-align:left; transition:all .15s ease; display:flex; flex-direction:column; gap:12px;
 }
-.user-card:hover{ border-color:var(--amber); transform:translateY(-2px); }
-.user-card.selected{ border-color:var(--amber); background:rgba(217,164,65,0.1); }
-.user-card .un{ font-size:14px; font-weight:700; }
-.user-card .ur{ font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--amber); margin-top:6px; }
-.pin-area{ display:flex; flex-direction:column; align-items:center; gap:12px; }
-.pin-dots{ display:flex; gap:10px; }
-.pin-dot{ width:14px; height:14px; border-radius:50%; border:1.5px solid var(--slate); }
-.pin-dot.filled{ background:var(--amber); border-color:var(--amber); }
-.pin-pad{ display:grid; grid-template-columns:repeat(3,60px); gap:10px; }
+.user-card:hover{ border-color:rgba(217,164,65,0.5); transform:translateY(-2px); }
+.user-card.selected{ border-color:var(--amber); background:rgba(217,164,65,0.08); box-shadow:0 0 0 1px var(--amber); }
+.avatar-circle{ width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; font-family:var(--font-display); color:#20190a; }
+.user-card .un{ font-size:15.5px; font-weight:700; letter-spacing:-.005em; }
+.role-pill{ display:inline-block; font-size:9.5px; text-transform:uppercase; letter-spacing:.08em; font-weight:700; padding:3px 9px; border-radius:10px; width:fit-content; }
+.role-manager{ background:rgba(217,164,65,0.18); color:var(--amber); }
+.role-cashier{ background:rgba(156,123,176,0.2); color:var(--plum); }
+.role-waiter{ background:rgba(74,138,99,0.2); color:var(--sage); }
+.avatar-circle.role-manager, .avatar-lg.role-manager{ background:var(--amber); }
+.avatar-circle.role-cashier, .avatar-lg.role-cashier{ background:var(--plum); }
+.avatar-circle.role-waiter, .avatar-lg.role-waiter{ background:var(--sage); }
+
+.pin-card{ background:var(--charcoal-2); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:30px 36px 34px; display:flex; flex-direction:column; align-items:center; gap:16px; width:340px; }
+.pin-back{ background:none; border:none; color:var(--slate-dim); font-size:11.5px; text-decoration:underline; text-underline-offset:2px; align-self:flex-start; }
+.pin-back:hover{ color:var(--amber); }
+.pin-user{ text-align:center; }
+.avatar-lg{ width:56px; height:56px; border-radius:50%; margin:0 auto 10px; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:700; font-family:var(--font-display); color:#20190a; }
+.pin-user .un{ font-size:17px; font-weight:700; }
+.pin-user .role-pill{ margin:6px auto 0; }
+.pin-dots{ display:flex; gap:13px; }
+.pin-dot{ width:15px; height:15px; border-radius:50%; border:1.5px solid rgba(255,255,255,0.25); transition:all .12s ease; }
+.pin-dot.filled{ background:var(--amber); border-color:var(--amber); transform:scale(1.12); }
+.login-error{ color:var(--rust); font-size:12.5px; min-height:18px; font-weight:600; }
+.pin-pad{ display:grid; grid-template-columns:repeat(3,64px); gap:12px; }
 .pin-pad button{
-  width:60px; height:60px; border-radius:50%; background:var(--charcoal-2); border:1px solid rgba(255,255,255,0.1);
-  color:var(--white); font-size:18px; font-weight:600;
+  width:64px; height:64px; border-radius:50%; background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.08);
+  color:var(--white); font-size:21px; font-weight:600; font-variant-numeric:tabular-nums; transition:all .1s ease;
 }
-.pin-pad button:hover{ border-color:var(--amber); color:var(--amber); }
-.pin-pad button.wide{ font-size:12px; }
-.login-error{ color:var(--rust); font-size:12.5px; min-height:16px; }
+.pin-pad button:hover{ border-color:var(--amber); color:var(--amber); background:rgba(217,164,65,0.08); }
+.pin-pad button:active{ transform:scale(.94); }
+.pin-pad button.fn{ font-size:15px; font-weight:700; color:var(--slate); letter-spacing:.02em; }
+.pin-pad button.fn.ok{ background:var(--amber); color:#2a1f08; border-color:var(--amber); }
+.pin-pad button.fn.ok:hover{ filter:brightness(1.08); color:#2a1f08; }
 
 /* ===== APP SHELL ===== */
 .app{ display:none; flex-direction:column; height:100vh; }
@@ -121,20 +146,26 @@ main{ flex:1; overflow:hidden; position:relative; }
 .cat-tab{ background:var(--charcoal-3); border:1px solid transparent; color:var(--slate); padding:7px 15px; border-radius:20px; font-size:12px; font-weight:600; white-space:nowrap; }
 .cat-tab.active{ background:var(--amber); color:#2a1f08; }
 .cat-tab:hover:not(.active){ color:var(--white); }
-.menu-items{ flex:1; overflow-y:auto; padding:6px 24px 24px; display:grid; grid-template-columns:repeat(auto-fill,minmax(198px,1fr)); gap:12px; align-content:start; }
-.item-card{ background:var(--charcoal-2); border:1px solid rgba(255,255,255,0.06); border-radius:var(--radius); padding:13px; position:relative; text-align:left; }
+.menu-items{ flex:1; overflow-y:auto; padding:6px 24px 24px; display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; align-content:start; }
+.item-card{ background:var(--charcoal-2); border:1px solid rgba(255,255,255,0.06); border-radius:var(--radius); padding:10px; position:relative; text-align:left; display:flex; gap:12px; }
 .item-card:not(.unavailable):hover{ transform:translateY(-2px); border-color:rgba(217,164,65,0.4); }
-.item-card.unavailable{ opacity:.42; filter:grayscale(.6); cursor:not-allowed; }
+.item-card.unavailable{ opacity:.5; cursor:not-allowed; }
+.item-card.unavailable .item-photo img{ filter:grayscale(.75); }
+.item-photo{ width:72px; height:72px; flex-shrink:0; border-radius:6px; overflow:hidden; background:var(--charcoal-3); }
+.item-photo img{ width:100%; height:100%; object-fit:cover; display:block; }
+.item-photo-placeholder{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-size:17px; font-weight:700; color:var(--slate-dim);
+  background-image:repeating-linear-gradient(135deg, var(--charcoal-3), var(--charcoal-3) 8px, var(--charcoal-4) 8px, var(--charcoal-4) 16px); }
+.item-content{ flex:1; min-width:0; display:flex; flex-direction:column; }
 .item-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
 .item-name{ font-size:13.5px; font-weight:600; }
 .veg-badge{ width:14px; height:14px; border:1.5px solid var(--sage); border-radius:3px; flex-shrink:0; display:flex; align-items:center; justify-content:center; margin-top:2px; }
 .veg-badge .d{ width:6px; height:6px; border-radius:50%; background:var(--sage); }
 .veg-badge.nonveg{ border-color:var(--rust); }
 .veg-badge.nonveg .d{ background:var(--rust); border-radius:0; clip-path:polygon(50% 0,100% 100%,0 100%); width:8px; height:8px; }
-.item-desc{ font-size:11px; color:var(--slate); margin-top:5px; line-height:1.35; min-height:28px; }
-.item-bottom{ display:flex; justify-content:space-between; align-items:center; margin-top:10px; }
+.item-desc{ font-size:11px; color:var(--slate); margin-top:3px; line-height:1.35; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.item-bottom{ display:flex; justify-content:space-between; align-items:center; margin-top:auto; padding-top:6px; }
 .item-price{ font-family:var(--font-mono); font-size:13px; color:var(--amber); font-weight:700; }
-.unavail-tag{ font-size:9px; color:var(--rust); text-transform:uppercase; letter-spacing:.05em; font-weight:700; margin-top:5px; }
+.unavail-tag{ font-size:9px; color:var(--rust); text-transform:uppercase; letter-spacing:.05em; font-weight:700; }
 
 .order-side{ width:380px; flex-shrink:0; background:var(--ticket); color:#26241f; display:flex; flex-direction:column; border-left:1px solid rgba(0,0,0,0.18); }
 .side-scroll{ flex:1; overflow-y:auto; padding:20px 20px 8px; }
@@ -269,12 +300,36 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
 <body>
 
 <div id="loginScreen">
-  <div class="login-brand"><div class="n">Asmara &amp; Addis</div><div class="s">Point of Sale — Sign In</div></div>
-  <div class="user-grid" id="userGrid"></div>
-  <div class="pin-area" id="pinArea" style="display:none;">
-    <div class="pin-dots" id="pinDots"></div>
-    <div class="login-error" id="loginError"></div>
-    <div class="pin-pad" id="pinPad"></div>
+  <div class="login-panel-brand">
+    <div>
+      <div class="mark">A&amp;A</div>
+      <div class="n">Asmara &amp; Addis</div>
+      <div class="s">Point of Sale</div>
+      <div class="rule"></div>
+    </div>
+    <div class="foot">
+      <div class="d" id="loginDate">—</div>
+      <div class="t" id="loginClock">--:--</div>
+    </div>
+  </div>
+  <div class="login-panel-main">
+    <div id="loginStepUser">
+      <div class="login-step-label">Select your name to sign in</div>
+      <div class="user-grid" id="userGrid"></div>
+    </div>
+    <div id="loginStepPin" style="display:none; flex-direction:column; align-items:center;">
+      <div class="pin-card">
+        <button class="pin-back" id="pinBackBtn">&larr; Not you? Choose another user</button>
+        <div class="pin-user">
+          <div class="avatar-lg" id="pinAvatar"></div>
+          <div class="un" id="pinUserName">—</div>
+          <div class="role-pill" id="pinUserRole"></div>
+        </div>
+        <div class="pin-dots" id="pinDots"></div>
+        <div class="login-error" id="loginError"></div>
+        <div class="pin-pad" id="pinPad"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -462,6 +517,35 @@ function requireOrToast(action){
 /* ===================== UTIL ===================== */
 function fmt(n){ return settings.currency + (Math.round((n||0)*100)/100).toFixed(2); }
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function itemInitials(name){
+  const words = String(name||'').trim().split(/\s+/).filter(Boolean);
+  if(words.length===0) return '?';
+  if(words.length===1) return words[0].slice(0,2).toUpperCase();
+  return (words[0][0]+words[1][0]).toUpperCase();
+}
+function fileToCompressedDataUrl(file, maxW, quality){
+  maxW = maxW || 480; quality = quality || 0.72;
+  return new Promise((resolve, reject)=>{
+    if(!file){ resolve(null); return; }
+    const reader = new FileReader();
+    reader.onerror = ()=>reject(reader.error);
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onerror = ()=>reject(new Error('Could not read image'));
+      img.onload = ()=>{
+        const scale = Math.min(1, maxW/img.width);
+        const w = Math.max(1, Math.round(img.width*scale));
+        const h = Math.max(1, Math.round(img.height*scale));
+        const canvas = document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 let toastTimer=null;
 function showToast(msg){
   const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show');
@@ -475,30 +559,51 @@ function tableById(id){ return tables.find(t=>t.id===id); }
 
 /* ===================== LOGIN ===================== */
 let loginSelectedUser=null, pinBuffer='';
+function roleClass(role){ return 'role-'+role; }
+function avatarInitial(name){ return String(name||'?').trim().charAt(0).toUpperCase(); }
 function renderUserGrid(){
   const grid=document.getElementById('userGrid');
   grid.innerHTML = users.map(u=>`
     <div class="user-card" data-uid="${u.id}">
+      <div class="avatar-circle ${roleClass(u.role)}">${avatarInitial(u.name)}</div>
       <div class="un">${escapeHtml(u.name)}</div>
-      <div class="ur">${u.role}</div>
+      <div class="role-pill ${roleClass(u.role)}">${u.role}</div>
     </div>
   `).join('');
   grid.querySelectorAll('.user-card').forEach(c=>c.addEventListener('click', ()=>selectLoginUser(c.dataset.uid)));
 }
 function selectLoginUser(id){
   loginSelectedUser = userById(id); pinBuffer='';
-  document.querySelectorAll('.user-card').forEach(c=>c.classList.toggle('selected', c.dataset.uid===id));
-  document.getElementById('pinArea').style.display='flex';
+  document.getElementById('loginStepUser').style.display='none';
+  document.getElementById('loginStepPin').style.display='flex';
+  document.getElementById('pinAvatar').textContent = avatarInitial(loginSelectedUser.name);
+  document.getElementById('pinAvatar').className = 'avatar-lg '+roleClass(loginSelectedUser.role);
+  document.getElementById('pinUserName').textContent = loginSelectedUser.name;
+  const roleEl = document.getElementById('pinUserRole');
+  roleEl.textContent = loginSelectedUser.role; roleEl.className = 'role-pill '+roleClass(loginSelectedUser.role);
   document.getElementById('loginError').textContent='';
   renderPinDots(); renderPinPad();
 }
+function backToUserStep(){
+  loginSelectedUser=null; pinBuffer='';
+  document.getElementById('loginStepPin').style.display='none';
+  document.getElementById('loginStepUser').style.display='block';
+  document.querySelectorAll('.user-card').forEach(c=>c.classList.remove('selected'));
+  document.getElementById('loginError').textContent='';
+}
+document.getElementById('pinBackBtn').addEventListener('click', backToUserStep);
 function renderPinDots(){
   document.getElementById('pinDots').innerHTML = [0,1,2,3].map(i=>`<div class="pin-dot ${i<pinBuffer.length?'filled':''}"></div>`).join('');
 }
 function renderPinPad(){
   const pad=document.getElementById('pinPad');
-  const keys=['1','2','3','4','5','6','7','8','9','C','0','OK'];
-  pad.innerHTML = keys.map(k=>`<button class="${k.length>1?'wide':''}" data-k="${k}">${k}</button>`).join('');
+  const keys=[
+    {k:'1',label:'1'},{k:'2',label:'2'},{k:'3',label:'3'},
+    {k:'4',label:'4'},{k:'5',label:'5'},{k:'6',label:'6'},
+    {k:'7',label:'7'},{k:'8',label:'8'},{k:'9',label:'9'},
+    {k:'C',label:'⌫', fn:true},{k:'0',label:'0'},{k:'OK',label:'Enter', fn:true, ok:true}
+  ];
+  pad.innerHTML = keys.map(x=>`<button class="${x.fn?'fn':''} ${x.ok?'ok':''}" data-k="${x.k}" aria-label="${x.k==='C'?'Clear':(x.k==='OK'?'Enter':x.k)}">${x.label}</button>`).join('');
   pad.querySelectorAll('button').forEach(b=>b.addEventListener('click', ()=>pinKey(b.dataset.k)));
 }
 function pinKey(k){
@@ -518,7 +623,7 @@ function attemptLogin(){
     persistAll();
     enterApp();
   } else {
-    err.textContent='Incorrect PIN.'; pinBuffer=''; renderPinDots();
+    err.textContent='Incorrect PIN — try again.'; pinBuffer=''; renderPinDots();
   }
 }
 document.getElementById('btnLogout').addEventListener('click', ()=>{
@@ -526,10 +631,16 @@ document.getElementById('btnLogout').addEventListener('click', ()=>{
   currentUser=null; session=null; persistAll();
   document.getElementById('app').classList.remove('active');
   document.getElementById('loginScreen').style.display='flex';
-  loginSelectedUser=null; pinBuffer='';
-  document.getElementById('pinArea').style.display='none';
-  document.querySelectorAll('.user-card').forEach(c=>c.classList.remove('selected'));
+  backToUserStep();
 });
+function updateLoginClock(){
+  const dEl=document.getElementById('loginDate'), tEl=document.getElementById('loginClock');
+  if(!dEl||!tEl) return;
+  const now=new Date();
+  dEl.textContent = now.toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'});
+  tEl.textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+setInterval(updateLoginClock, 1000);
 
 function enterApp(){
   document.getElementById('loginScreen').style.display='none';
@@ -735,10 +846,12 @@ function renderOrderView(){
   const items=menu.filter(m=>m.category===currentCategory);
   itemsEl.innerHTML = items.map(m=>`
     <div class="item-card ${m.available?'':'unavailable'}" data-mid="${m.id}">
-      <div class="item-top"><div class="item-name">${escapeHtml(m.name)}</div><div class="veg-badge ${m.veg?'':'nonveg'}"><span class="d"></span></div></div>
-      <div class="item-desc">${escapeHtml(m.description)}</div>
-      ${m.available?'':'<div class="unavail-tag">Unavailable</div>'}
-      <div class="item-bottom"><div class="item-price">${fmt(m.price)}</div></div>
+      <div class="item-photo">${m.image ? `<img src="${escapeHtml(m.image)}" alt="${escapeHtml(m.name)}">` : `<div class="item-photo-placeholder">${escapeHtml(itemInitials(m.name))}</div>`}</div>
+      <div class="item-content">
+        <div class="item-top"><div class="item-name">${escapeHtml(m.name)}</div><div class="veg-badge ${m.veg?'':'nonveg'}"><span class="d"></span></div></div>
+        <div class="item-desc">${escapeHtml(m.description)}</div>
+        <div class="item-bottom"><div class="item-price">${fmt(m.price)}</div>${m.available?'':'<div class="unavail-tag">Unavailable</div>'}</div>
+      </div>
     </div>
   `).join('');
   itemsEl.querySelectorAll('.item-card').forEach(card=>{
@@ -1476,8 +1589,8 @@ function renderSettings(){
 
     <div class="shift-card">
       <div class="head-row" style="margin-bottom:8px;"><div class="section-title" style="margin:0;">Menu</div><button class="btn btn-outline-dark" id="btnAddItem" style="width:auto; padding:8px 14px;">+ Add Item</button></div>
-      <table class="data-table"><thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Type</th><th>Available</th><th></th></tr></thead><tbody>
-        ${menu.map(m=>`<tr><td>${escapeHtml(m.name)}</td><td>${escapeHtml(m.category)}</td><td>${fmt(m.price)}</td><td>${m.veg?'Veg':'Non-Veg'}</td><td>${m.available?'Yes':'No'}</td>
+      <table class="data-table"><thead><tr><th>Photo</th><th>Name</th><th>Category</th><th>Price</th><th>Type</th><th>Available</th><th></th></tr></thead><tbody>
+        ${menu.map(m=>`<tr><td><div class="item-photo" style="width:40px; height:40px;">${m.image?`<img src="${escapeHtml(m.image)}" alt="">`:`<div class="item-photo-placeholder" style="font-size:11px;">${escapeHtml(itemInitials(m.name))}</div>`}</div></td><td>${escapeHtml(m.name)}</td><td>${escapeHtml(m.category)}</td><td>${fmt(m.price)}</td><td>${m.veg?'Veg':'Non-Veg'}</td><td>${m.available?'Yes':'No'}</td>
           <td><button class="small-btn" data-edit-item="${m.id}">Edit</button><button class="small-btn" data-toggle-item="${m.id}">${m.available?'Mark Unavailable':'Mark Available'}</button><button class="small-btn danger" data-del-item="${m.id}">Delete</button></td></tr>`).join('')}
       </tbody></table>
     </div>
@@ -1567,7 +1680,17 @@ function openUserForm(u){
 function openItemForm(m){
   const editing=!!m;
   const categories=[...new Set(menu.map(x=>x.category))];
+  let pendingImage = editing ? (m.image || null) : null;
   const body=`<div class="form-grid">
+    <div class="form-field full" style="flex-direction:row; align-items:center; gap:14px;">
+      <div class="item-photo" id="ifPreviewBox" style="width:84px; height:84px; flex-shrink:0;">${pendingImage?`<img id="ifPreviewImg" src="${escapeHtml(pendingImage)}" alt="">`:`<div class="item-photo-placeholder" id="ifPreviewImg">${editing?escapeHtml(itemInitials(m.name)):'?'}</div>`}</div>
+      <div style="flex:1;">
+        <label style="font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--slate-dim); display:block; margin-bottom:6px;">Photo</label>
+        <input type="file" id="ifImageFile" accept="image/*" style="font-size:12px; color:var(--slate);">
+        <div class="hint" id="ifImageErr"></div>
+      </div>
+    </div>
+    <div class="form-field full"><label>Or Image URL</label><input id="ifImageUrl" placeholder="https://…" value="${editing && pendingImage && pendingImage.indexOf('data:')!==0 ? escapeHtml(pendingImage) : ''}"></div>
     <div class="form-field full"><label>Name</label><input id="ifName" value="${editing?escapeHtml(m.name):''}"></div>
     <div class="form-field full"><label>Description</label><input id="ifDesc" value="${editing?escapeHtml(m.description):''}"></div>
     <div class="form-field"><label>Category</label><input id="ifCat" list="catList" value="${editing?escapeHtml(m.category):''}"><datalist id="catList">${categories.map(c=>`<option value="${escapeHtml(c)}">`).join('')}</datalist></div>
@@ -1584,12 +1707,37 @@ function openItemForm(m){
       const price=Number(document.getElementById('ifPrice').value)||0;
       const veg=document.getElementById('ifVeg').checked;
       const available=document.getElementById('ifAvail').checked;
+      const urlVal=document.getElementById('ifImageUrl').value.trim();
+      const image = pendingImage || (urlVal || null);
       if(!name){ showToast('Item name is required.'); return; }
-      if(editing){ Object.assign(m, {name,description,category,price,veg,available}); audit('Menu item updated', name, '', 'edited'); }
-      else { menu.push({id:uid('m'), name, description, category, price, veg, available}); audit('Menu item created', name, '', 'created'); }
+      if(editing){ Object.assign(m, {name,description,category,price,veg,available,image}); audit('Menu item updated', name, '', 'edited'); }
+      else { menu.push({id:uid('m'), name, description, category, price, veg, available, image}); audit('Menu item created', name, '', 'created'); }
       persistAll(); closeGeneric(); renderSettings(); showToast('Menu item saved');
     }}
   ]);
+  const fileInput=document.getElementById('ifImageFile');
+  const urlInput=document.getElementById('ifImageUrl');
+  function refreshPreview(src, placeholderText){
+    const box=document.getElementById('ifPreviewBox');
+    box.innerHTML = src ? `<img id="ifPreviewImg" src="${src}" alt="">` : `<div class="item-photo-placeholder" id="ifPreviewImg">${escapeHtml(placeholderText||'?')}</div>`;
+  }
+  fileInput.addEventListener('change', ()=>{
+    const file=fileInput.files && fileInput.files[0];
+    if(!file) return;
+    document.getElementById('ifImageErr').textContent='Processing image…';
+    fileToCompressedDataUrl(file, 480, 0.72).then(dataUrl=>{
+      pendingImage = dataUrl;
+      urlInput.value='';
+      refreshPreview(dataUrl);
+      document.getElementById('ifImageErr').textContent='';
+    }).catch(()=>{
+      document.getElementById('ifImageErr').textContent='Could not read that image file.';
+    });
+  });
+  urlInput.addEventListener('input', ()=>{
+    if(urlInput.value.trim()){ pendingImage=null; fileInput.value=''; refreshPreview(urlInput.value.trim()); }
+    else { refreshPreview(null, document.getElementById('ifName').value ? itemInitials(document.getElementById('ifName').value) : '?'); }
+  });
 }
 
 /* ===================== GENERIC MODAL ===================== */
@@ -1617,6 +1765,7 @@ document.querySelectorAll('.modal-overlay').forEach(ov=>ov.addEventListener('cli
 
 /* ===================== INIT ===================== */
 renderUserGrid();
+updateLoginClock();
 if(currentUser){ enterApp(); }
 })();
 </script>
