@@ -1,0 +1,30 @@
+{
+  "name": "resturant-pos",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "package": "electron-builder"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yitbarekberhane/Resturant-pos-system.git"
+  },
+  "build": {
+    "appId": "com.yitbarek.myapp",
+    "productName": "Restaurant-pos-full"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/yitbarekberhane/Resturant-pos-system/issues"
+  },
+  "homepage": "https://github.com/yitbarekberhane/Resturant-pos-system#readme",
+  "devDependencies": {
+    "electron": "^43.4.1",
+    "electron-builder": "^24.13.3"
+  }
+}
