@@ -1,0 +1,1773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asmara &amp; Addis — POS</title>
+<style>
+:root{
+  --charcoal:#171614; --charcoal-2:#201E1B; --charcoal-3:#2B2824; --charcoal-4:#38342E;
+  --amber:#D9A441; --amber-bright:#F0C267; --sage:#4A8A63; --rust:#C25439; --plum:#9C7BB0;
+  --slate:#9A968B; --slate-dim:#6E6A61; --ticket:#F4F0E6; --ticket-line:#DED6C1; --white:#F7F5EF;
+  --font-display:"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,'Times New Roman',serif;
+  --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --font-mono:'Courier New',monospace; --radius:5px;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%;}
+body{ background:var(--charcoal); color:var(--white); font-family:var(--font-body); overflow:hidden; }
+button,select,input{ font-family:inherit; }
+button{ cursor:pointer; }
+::-webkit-scrollbar{ width:9px; height:9px; }
+::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.12); border-radius:5px; }
+::-webkit-scrollbar-thumb:hover{ background:rgba(217,164,65,0.4); }
+
+/* ===== LOGIN ===== */
+#loginScreen{ position:fixed; inset:0; background:var(--charcoal); display:flex; z-index:1000; }
+.login-panel-brand{
+  width:380px; flex-shrink:0; background:linear-gradient(165deg, var(--charcoal-2), var(--charcoal) 75%);
+  border-right:1px solid rgba(217,164,65,0.16); display:flex; flex-direction:column; justify-content:space-between; padding:46px 40px;
+}
+.login-panel-brand .mark{ width:44px; height:44px; border:1.5px solid var(--amber); border-radius:10px; display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-size:17px; font-weight:700; color:var(--amber); }
+.login-panel-brand .n{ font-family:var(--font-display); font-size:33px; font-weight:700; letter-spacing:-.01em; line-height:1.18; margin-top:20px; }
+.login-panel-brand .s{ font-family:var(--font-mono); font-size:10.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--amber); margin-top:9px; }
+.login-panel-brand .rule{ width:52px; height:2px; background:var(--amber); margin-top:24px; opacity:.55; }
+.login-panel-brand .foot .d{ font-size:10.5px; color:var(--slate-dim); text-transform:uppercase; letter-spacing:.09em; margin-bottom:6px; }
+.login-panel-brand .foot .t{ font-family:var(--font-mono); font-size:24px; color:var(--white); font-variant-numeric:tabular-nums; letter-spacing:.01em; }
+
+.login-panel-main{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px; gap:22px; overflow-y:auto; }
+.login-step-label{ font-family:var(--font-mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--slate-dim); text-align:center; margin-bottom:20px; }
+.user-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; max-width:640px; width:100%; }
+.user-card{
+  background:var(--charcoal-2); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:20px 18px;
+  text-align:left; transition:all .15s ease; display:flex; flex-direction:column; gap:12px;
+}
+.user-card:hover{ border-color:rgba(217,164,65,0.5); transform:translateY(-2px); }
+.user-card.selected{ border-color:var(--amber); background:rgba(217,164,65,0.08); box-shadow:0 0 0 1px var(--amber); }
+.avatar-circle{ width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; font-family:var(--font-display); color:#20190a; }
+.user-card .un{ font-size:15.5px; font-weight:700; letter-spacing:-.005em; }
+.role-pill{ display:inline-block; font-size:9.5px; text-transform:uppercase; letter-spacing:.08em; font-weight:700; padding:3px 9px; border-radius:10px; width:fit-content; }
+.role-manager{ background:rgba(217,164,65,0.18); color:var(--amber); }
+.role-cashier{ background:rgba(156,123,176,0.2); color:var(--plum); }
+.role-waiter{ background:rgba(74,138,99,0.2); color:var(--sage); }
+.avatar-circle.role-manager, .avatar-lg.role-manager{ background:var(--amber); }
+.avatar-circle.role-cashier, .avatar-lg.role-cashier{ background:var(--plum); }
+.avatar-circle.role-waiter, .avatar-lg.role-waiter{ background:var(--sage); }
+
+.pin-card{ background:var(--charcoal-2); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:30px 36px 34px; display:flex; flex-direction:column; align-items:center; gap:16px; width:340px; }
+.pin-back{ background:none; border:none; color:var(--slate-dim); font-size:11.5px; text-decoration:underline; text-underline-offset:2px; align-self:flex-start; }
+.pin-back:hover{ color:var(--amber); }
+.pin-user{ text-align:center; }
+.avatar-lg{ width:56px; height:56px; border-radius:50%; margin:0 auto 10px; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:700; font-family:var(--font-display); color:#20190a; }
+.pin-user .un{ font-size:17px; font-weight:700; }
+.pin-user .role-pill{ margin:6px auto 0; }
+.pin-dots{ display:flex; gap:13px; }
+.pin-dot{ width:15px; height:15px; border-radius:50%; border:1.5px solid rgba(255,255,255,0.25); transition:all .12s ease; }
+.pin-dot.filled{ background:var(--amber); border-color:var(--amber); transform:scale(1.12); }
+.login-error{ color:var(--rust); font-size:12.5px; min-height:18px; font-weight:600; }
+.pin-pad{ display:grid; grid-template-columns:repeat(3,64px); gap:12px; }
+.pin-pad button{
+  width:64px; height:64px; border-radius:50%; background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.08);
+  color:var(--white); font-size:21px; font-weight:600; font-variant-numeric:tabular-nums; transition:all .1s ease;
+}
+.pin-pad button:hover{ border-color:var(--amber); color:var(--amber); background:rgba(217,164,65,0.08); }
+.pin-pad button:active{ transform:scale(.94); }
+.pin-pad button.fn{ font-size:15px; font-weight:700; color:var(--slate); letter-spacing:.02em; }
+.pin-pad button.fn.ok{ background:var(--amber); color:#2a1f08; border-color:var(--amber); }
+.pin-pad button.fn.ok:hover{ filter:brightness(1.08); color:#2a1f08; }
+
+/* ===== APP SHELL ===== */
+.app{ display:none; flex-direction:column; height:100vh; }
+.app.active{ display:flex; }
+.topbar{ display:flex; align-items:center; justify-content:space-between; padding:10px 22px; background:var(--charcoal-2); border-bottom:1px solid rgba(217,164,65,0.16); flex-shrink:0; z-index:50; }
+.topbar-left{ display:flex; align-items:center; gap:16px; }
+.brand{ display:flex; flex-direction:column; }
+.brand-name{ font-family:var(--font-display); font-size:18px; font-weight:700; }
+.brand-sub{ font-family:var(--font-mono); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--amber); }
+.nav-tabs{ display:flex; gap:4px; background:var(--charcoal-3); padding:4px; border-radius:7px; }
+.nav-tab{ background:none; border:none; color:var(--slate); padding:7px 14px; font-size:12px; font-weight:600; border-radius:5px; text-transform:uppercase; letter-spacing:.03em; }
+.nav-tab.active{ background:var(--amber); color:#2a1f08; }
+.nav-tab:hover:not(.active){ color:var(--white); }
+.topbar-right{ display:flex; align-items:center; gap:14px; }
+.tb-stat{ text-align:right; }
+.tb-stat .lbl{ font-size:9px; text-transform:uppercase; letter-spacing:.1em; color:var(--slate-dim); }
+.tb-stat .val{ font-family:var(--font-mono); font-size:13px; }
+.user-chip{ display:flex; flex-direction:column; align-items:flex-end; padding-right:10px; border-right:1px solid rgba(255,255,255,0.1); }
+.user-chip .n{ font-size:12.5px; font-weight:700; }
+.user-chip .r{ font-size:9.5px; text-transform:uppercase; color:var(--amber); }
+.icon-btn{ background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.08); color:var(--slate); padding:8px 12px; border-radius:6px; font-size:12px; font-weight:600; }
+.icon-btn:hover{ color:var(--amber); border-color:rgba(217,164,65,0.4); }
+
+main{ flex:1; overflow:hidden; position:relative; }
+.view{ position:absolute; inset:0; display:none; overflow:auto; }
+.view.active{ display:block; }
+.pad{ padding:24px 30px 60px; }
+.head-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:10px; }
+.head-row h2{ font-family:var(--font-display); font-size:21px; }
+.legend{ display:flex; gap:14px; font-size:11px; color:var(--slate); }
+.legend span{ display:inline-flex; align-items:center; gap:6px; }
+.dot{ width:9px; height:9px; border-radius:50%; display:inline-block; }
+
+/* ===== FLOOR ===== */
+.table-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(148px,1fr)); gap:16px; }
+.tcard{ background:var(--charcoal-2); border:1px solid rgba(255,255,255,0.06); border-radius:var(--radius); padding:16px 14px; min-height:126px; position:relative; transition:transform .15s ease, border-color .15s ease; display:flex; flex-direction:column; justify-content:space-between; }
+.tcard:hover{ transform:translateY(-2px); border-color:rgba(217,164,65,0.35); }
+.tcard .sbar{ position:absolute; top:0; left:0; right:0; height:3px; border-radius:var(--radius) var(--radius) 0 0; }
+.tcard.st-available .sbar{ background:var(--sage); } .tcard.st-occupied .sbar{ background:var(--amber); } .tcard.st-reserved .sbar{ background:var(--plum); }
+.tnum{ font-family:var(--font-mono); font-size:23px; font-weight:700; }
+.tcap{ font-size:10px; color:var(--slate-dim); text-transform:uppercase; letter-spacing:.05em; margin-top:2px; }
+.tfoot{ display:flex; justify-content:space-between; align-items:flex-end; margin-top:10px; }
+.tstatus{ font-size:9.5px; text-transform:uppercase; letter-spacing:.08em; font-weight:700; }
+.st-available .tstatus{ color:var(--sage); } .st-occupied .tstatus{ color:var(--amber); } .st-reserved .tstatus{ color:var(--plum); }
+.twaiter{ font-size:10.5px; opacity:.8; margin-top:1px; }
+.ttotal{ font-family:var(--font-mono); font-size:12.5px; color:var(--amber); font-weight:700; }
+
+.ctx-menu{ position:fixed; background:var(--charcoal-3); border:1px solid rgba(217,164,65,0.3); border-radius:6px; padding:6px; z-index:400; min-width:190px; box-shadow:0 10px 30px rgba(0,0,0,0.5); }
+.ctx-item{ display:block; width:100%; text-align:left; background:none; border:none; color:var(--white); padding:9px 12px; font-size:13px; border-radius:4px; }
+.ctx-item:hover{ background:rgba(217,164,65,0.14); color:var(--amber); }
+.ctx-item[disabled]{ color:var(--slate-dim); cursor:not-allowed; }
+.ctx-item[disabled]:hover{ background:none; color:var(--slate-dim); }
+
+/* ===== ORDER VIEW ===== */
+.order-wrap{ display:flex; height:100%; }
+.order-main{ flex:1; display:flex; flex-direction:column; overflow:hidden; }
+.order-topstrip{ padding:14px 24px; border-bottom:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+.back-btn{ background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.08); color:var(--slate); padding:8px 14px; border-radius:6px; font-size:12px; font-weight:600; }
+.back-btn:hover{ color:var(--amber); }
+.ot-tinfo .n{ font-family:var(--font-mono); font-size:17px; font-weight:700; }
+.ot-tinfo .c{ font-size:10px; color:var(--slate-dim); text-transform:uppercase; }
+.ot-waiter{ font-size:12px; color:var(--slate); }
+.checks-strip{ display:flex; gap:6px; margin-left:auto; align-items:center; }
+.check-tab{ background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.08); color:var(--slate); padding:8px 13px; border-radius:6px; font-size:11.5px; font-weight:600; }
+.check-tab.active{ background:rgba(217,164,65,0.16); border-color:var(--amber); color:var(--amber); }
+.check-add{ background:none; border:1px dashed rgba(255,255,255,0.2); color:var(--slate); width:32px; height:32px; border-radius:6px; font-size:15px; }
+.check-add:hover{ border-color:var(--amber); color:var(--amber); }
+.menu-cats{ display:flex; gap:6px; padding:12px 24px; overflow-x:auto; flex-shrink:0; }
+.cat-tab{ background:var(--charcoal-3); border:1px solid transparent; color:var(--slate); padding:7px 15px; border-radius:20px; font-size:12px; font-weight:600; white-space:nowrap; }
+.cat-tab.active{ background:var(--amber); color:#2a1f08; }
+.cat-tab:hover:not(.active){ color:var(--white); }
+.menu-items{ flex:1; overflow-y:auto; padding:6px 24px 24px; display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; align-content:start; }
+.item-card{ background:var(--charcoal-2); border:1px solid rgba(255,255,255,0.06); border-radius:var(--radius); padding:10px; position:relative; text-align:left; display:flex; gap:12px; }
+.item-card:not(.unavailable):hover{ transform:translateY(-2px); border-color:rgba(217,164,65,0.4); }
+.item-card.unavailable{ opacity:.5; cursor:not-allowed; }
+.item-card.unavailable .item-photo img{ filter:grayscale(.75); }
+.item-photo{ width:72px; height:72px; flex-shrink:0; border-radius:6px; overflow:hidden; background:var(--charcoal-3); }
+.item-photo img{ width:100%; height:100%; object-fit:cover; display:block; }
+.item-photo-placeholder{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-size:17px; font-weight:700; color:var(--slate-dim);
+  background-image:repeating-linear-gradient(135deg, var(--charcoal-3), var(--charcoal-3) 8px, var(--charcoal-4) 8px, var(--charcoal-4) 16px); }
+.item-content{ flex:1; min-width:0; display:flex; flex-direction:column; }
+.item-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+.item-name{ font-size:13.5px; font-weight:600; }
+.veg-badge{ width:14px; height:14px; border:1.5px solid var(--sage); border-radius:3px; flex-shrink:0; display:flex; align-items:center; justify-content:center; margin-top:2px; }
+.veg-badge .d{ width:6px; height:6px; border-radius:50%; background:var(--sage); }
+.veg-badge.nonveg{ border-color:var(--rust); }
+.veg-badge.nonveg .d{ background:var(--rust); border-radius:0; clip-path:polygon(50% 0,100% 100%,0 100%); width:8px; height:8px; }
+.item-desc{ font-size:11px; color:var(--slate); margin-top:3px; line-height:1.35; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.item-bottom{ display:flex; justify-content:space-between; align-items:center; margin-top:auto; padding-top:6px; }
+.item-price{ font-family:var(--font-mono); font-size:13px; color:var(--amber); font-weight:700; }
+.unavail-tag{ font-size:9px; color:var(--rust); text-transform:uppercase; letter-spacing:.05em; font-weight:700; }
+
+.order-side{ width:380px; flex-shrink:0; background:var(--ticket); color:#26241f; display:flex; flex-direction:column; border-left:1px solid rgba(0,0,0,0.18); }
+.side-scroll{ flex:1; overflow-y:auto; padding:20px 20px 8px; }
+.side-empty{ color:#a39c86; font-size:13px; font-style:italic; padding:16px 0; text-align:center; }
+.side-sub{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#7a7566; margin-bottom:10px; }
+.line-item{ padding:9px 0; border-bottom:1px solid #e7e0cd; }
+.li-top{ display:flex; align-items:center; gap:8px; }
+.li-name{ flex:1; font-size:13px; font-weight:600; }
+.li-remove{ background:none; border:none; color:var(--rust); font-size:15px; padding:2px; }
+.li-mid{ display:flex; align-items:center; justify-content:space-between; margin-top:6px; }
+.qty-ctl{ display:flex; align-items:center; gap:7px; }
+.qty-ctl button{ width:21px; height:21px; border-radius:4px; border:1px solid #cfc7ae; background:#fff; font-size:13px; }
+.qty-ctl span{ font-family:var(--font-mono); font-size:12px; min-width:14px; text-align:center; }
+.li-price{ font-family:var(--font-mono); font-size:12.5px; color:#5b584f; }
+.li-note{ width:100%; margin-top:6px; border:1px dashed #cfc7ae; background:#fbf9f3; border-radius:4px; padding:6px 8px; font-size:11px; color:#5b584f; }
+.li-move{ margin-top:6px; font-size:10.5px; border:1px solid #cfc7ae; border-radius:4px; padding:4px 6px; background:#fff; color:#5b584f; }
+.side-block{ border-top:2px dashed var(--ticket-line); padding-top:12px; margin-top:12px; }
+.side-block h4{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#7a7566; margin-bottom:8px; }
+.disc-row{ display:flex; gap:8px; align-items:center; }
+.toggle-pair{ display:flex; border:1px solid #cfc7ae; border-radius:5px; overflow:hidden; }
+.toggle-pair button{ background:#fff; border:none; padding:8px 10px; font-size:11px; font-weight:600; color:#7a7566; }
+.toggle-pair button.on{ background:var(--amber); color:#3a2c0e; }
+.side-block input[type=number],.side-block input[type=text]{ flex:1; border:1px solid #cfc7ae; border-radius:5px; padding:7px 9px; font-size:12.5px; background:#fff; color:#26241f; }
+input:disabled{ opacity:.5; }
+.check-row{ display:flex; align-items:center; gap:8px; font-size:12px; margin-top:8px; color:#5b584f; }
+.totals{ border-top:2px dashed var(--ticket-line); margin-top:14px; padding-top:12px; }
+.trow{ display:flex; justify-content:space-between; font-size:12px; padding:3px 0; color:#5b584f; }
+.trow.grand{ font-size:18px; font-weight:800; color:#26241f; padding-top:9px; border-top:1px solid #e7e0cd; margin-top:5px; font-family:var(--font-mono); }
+.trow.neg span:last-child{ color:var(--sage); }
+.side-actions{ padding:14px 20px 20px; border-top:1px solid #e7e0cd; display:flex; flex-direction:column; gap:7px; }
+.btn{ padding:10px; border-radius:6px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; border:none; }
+.btn:active{ transform:scale(.98); }
+.btn-amber{ background:var(--amber); color:#2a1f08; } .btn-amber:hover{ filter:brightness(1.08); }
+.btn-dark{ background:var(--charcoal); color:var(--white); } .btn-dark:hover{ filter:brightness(1.3); }
+.btn-outline{ background:none; border:1px solid #cfc7ae; color:#7a7566; } .btn-outline:hover{ border-color:var(--rust); color:var(--rust); }
+.btn-outline-dark{ background:none; border:1px solid rgba(255,255,255,0.15); color:var(--slate); }
+.btn-outline-dark:hover{ border-color:var(--amber); color:var(--amber); }
+.btn:disabled{ opacity:.4; cursor:not-allowed; }
+.btn-row{ display:flex; gap:8px; } .btn-row .btn{ flex:1; }
+
+/* ===== TABLES / LISTS ===== */
+table.data-table{ width:100%; border-collapse:collapse; }
+table.data-table th{ text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--slate-dim); padding:9px 11px; border-bottom:1px solid rgba(255,255,255,0.08); }
+table.data-table td{ padding:11px; font-size:12.5px; border-bottom:1px solid rgba(255,255,255,0.05); }
+table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
+.pm-badge{ font-size:9.5px; text-transform:uppercase; font-weight:700; padding:3px 8px; border-radius:10px; letter-spacing:.04em; }
+.pm-cash{ background:rgba(74,138,99,0.18); color:var(--sage); } .pm-card{ background:rgba(217,164,65,0.18); color:var(--amber); }
+.pm-upi{ background:rgba(156,123,176,0.2); color:var(--plum); } .pm-split{ background:rgba(194,84,57,0.18); color:var(--rust); }
+.small-btn{ background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.1); color:var(--amber); font-size:10.5px; padding:5px 9px; border-radius:5px; font-weight:600; margin-right:4px; }
+.small-btn:hover{ background:rgba(217,164,65,0.14); }
+.small-btn.danger{ color:var(--rust); }
+.empty-note{ color:var(--slate); font-size:13px; padding:34px 0; text-align:center; }
+.filters-row{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+.filter-select,.filter-input{ background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.1); color:var(--white); padding:7px 10px; border-radius:6px; font-size:12px; }
+.badge-voided{ background:rgba(194,84,57,0.2); color:var(--rust); font-size:9.5px; font-weight:700; text-transform:uppercase; padding:2px 7px; border-radius:8px; margin-left:6px; }
+
+/* ===== CASH / SHIFT CARDS ===== */
+.shift-card{ background:var(--charcoal-2); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:18px; margin-bottom:16px; }
+.stat-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:14px 0; }
+.stat-box{ background:var(--charcoal-3); border-radius:7px; padding:12px 14px; }
+.stat-box .l{ font-size:9.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--slate-dim); }
+.stat-box .v{ font-family:var(--font-mono); font-size:17px; font-weight:700; margin-top:4px; }
+.stat-box.warn .v{ color:var(--rust); } .stat-box.good .v{ color:var(--sage); } .stat-box.amber .v{ color:var(--amber); }
+.section-title{ font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--slate-dim); margin:18px 0 10px; }
+
+/* ===== MODALS ===== */
+.modal-overlay{ position:fixed; inset:0; background:rgba(10,9,7,0.72); display:none; align-items:center; justify-content:center; z-index:300; backdrop-filter:blur(2px); animation:fadeIn .18s ease; }
+.modal-overlay.open{ display:flex; }
+@keyframes fadeIn{ from{opacity:0;} to{opacity:1;} }
+.modal-box{ background:var(--charcoal-2); border:1px solid rgba(217,164,65,0.2); border-radius:10px; width:520px; max-width:92vw; max-height:88vh; display:flex; flex-direction:column; animation:modalIn .2s cubic-bezier(.2,.8,.3,1); }
+@keyframes modalIn{ from{opacity:0; transform:translateY(14px) scale(.97);} to{opacity:1; transform:translateY(0) scale(1);} }
+.modal-box.wide{ width:660px; }
+.modal-box.ticket{ background:var(--ticket); color:#26241f; }
+.modal-head{ display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid rgba(255,255,255,0.08); }
+.modal-box.ticket .modal-head{ border-bottom:2px dashed var(--ticket-line); }
+.modal-head h3{ font-family:var(--font-display); font-size:18px; }
+.modal-close{ background:none; border:none; color:var(--slate); font-size:20px; }
+.modal-close:hover{ color:var(--white); }
+.modal-box.ticket .modal-close{ color:#7a7566; }
+.modal-body{ padding:18px 20px; overflow-y:auto; }
+.modal-foot{ padding:14px 20px 18px; border-top:1px solid rgba(255,255,255,0.08); display:flex; gap:10px; }
+.modal-box.ticket .modal-foot{ border-top:2px dashed var(--ticket-line); }
+.form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.form-field{ display:flex; flex-direction:column; gap:5px; }
+.form-field.full{ grid-column:1/-1; }
+.form-field label{ font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--slate-dim); }
+.form-field input,.form-field select{ background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.1); color:var(--white); padding:9px 10px; border-radius:5px; font-size:13px; }
+.form-field.check{ flex-direction:row; align-items:center; gap:8px; }
+.form-field.check label{ text-transform:none; font-size:12.5px; color:var(--white); letter-spacing:0; }
+.hint{ font-size:11px; color:var(--slate-dim); margin-top:4px; }
+.warn-text{ color:var(--rust); font-size:12px; margin-top:6px; }
+
+.pay-tabs{ display:flex; gap:6px; margin-bottom:14px; }
+.pay-tab{ flex:1; background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.1); color:var(--slate); padding:9px; border-radius:6px; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; }
+.pay-tab.active{ background:var(--amber); color:#2a1f08; border-color:var(--amber); }
+.pay-panel{ display:none; } .pay-panel.active{ display:block; }
+.due-box{ background:var(--charcoal-3); border-radius:8px; padding:13px 15px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; }
+.due-box .lbl{ font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--slate-dim); }
+.due-box .amt{ font-family:var(--font-mono); font-size:20px; font-weight:800; color:var(--amber); }
+.split-row{ display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+.split-row select{ flex:1; } .split-row input{ width:100px; }
+.split-remove{ background:none; border:none; color:var(--rust); font-size:16px; }
+.split-remaining{ font-size:12px; margin-top:8px; text-align:right; }
+.split-remaining.ok{ color:var(--sage); } .split-remaining.bad{ color:var(--rust); }
+.change-box{ margin-top:9px; font-size:13px; }
+.change-box .amt{ font-family:var(--font-mono); font-weight:700; color:var(--sage); }
+.change-box .amt.bad{ color:var(--rust); }
+
+.receipt-head{ text-align:center; margin-bottom:12px; }
+.receipt-head .rname{ font-family:var(--font-display); font-size:19px; font-weight:700; }
+.receipt-head .raddr,.receipt-head .rtax{ font-size:10.5px; color:#7a7566; margin-top:2px; }
+.meta-row{ display:flex; justify-content:space-between; font-size:11px; color:#5b584f; padding:2px 0; }
+.dashed{ border-top:1px dashed #cfc7ae; margin:9px 0; }
+.receipt-item{ padding:6px 0; border-bottom:1px dashed #e7e0cd; font-size:12.5px; }
+.receipt-item .r1{ display:flex; justify-content:space-between; }
+.receipt-item .r2{ font-size:10px; color:#7a7566; }
+
+.summary-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+.pm-bar-row{ display:flex; align-items:center; gap:10px; margin-bottom:9px; }
+.pm-bar-label{ width:56px; font-size:11px; text-transform:uppercase; color:var(--slate); }
+.pm-bar-track{ flex:1; background:var(--charcoal-3); border-radius:4px; height:9px; overflow:hidden; }
+.pm-bar-fill{ height:100%; background:var(--amber); border-radius:4px; }
+.pm-bar-val{ width:66px; text-align:right; font-family:var(--font-mono); font-size:11.5px; }
+
+.toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--charcoal-4); border:1px solid rgba(217,164,65,0.3); color:var(--white); padding:12px 20px; border-radius:8px; font-size:12.5px; z-index:500; opacity:0; transition:all .25s ease; pointer-events:none; max-width:80vw; text-align:center; }
+.toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+#printArea{ display:none; }
+@media print{ body *{ visibility:hidden; } #printArea,#printArea *{ visibility:visible; } #printArea{ display:block !important; position:absolute; top:0; left:0; width:100%; background:#fff; color:#000; padding:20px; } }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-panel-brand">
+    <div>
+      <div class="mark">A&amp;A</div>
+      <div class="n">Asmara &amp; Addis</div>
+      <div class="s">Point of Sale</div>
+      <div class="rule"></div>
+    </div>
+    <div class="foot">
+      <div class="d" id="loginDate">—</div>
+      <div class="t" id="loginClock">--:--</div>
+    </div>
+  </div>
+  <div class="login-panel-main">
+    <div id="loginStepUser">
+      <div class="login-step-label">Select your name to sign in</div>
+      <div class="user-grid" id="userGrid"></div>
+    </div>
+    <div id="loginStepPin" style="display:none; flex-direction:column; align-items:center;">
+      <div class="pin-card">
+        <button class="pin-back" id="pinBackBtn">&larr; Not you? Choose another user</button>
+        <div class="pin-user">
+          <div class="avatar-lg" id="pinAvatar"></div>
+          <div class="un" id="pinUserName">—</div>
+          <div class="role-pill" id="pinUserRole"></div>
+        </div>
+        <div class="pin-dots" id="pinDots"></div>
+        <div class="login-error" id="loginError"></div>
+        <div class="pin-pad" id="pinPad"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="app">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="brand"><div class="brand-name" id="tbName">Asmara &amp; Addis</div><div class="brand-sub" id="tbShift">—</div></div>
+      <div class="nav-tabs" id="navTabs"></div>
+    </div>
+    <div class="topbar-right">
+      <div class="user-chip"><div class="n" id="tbUser">—</div><div class="r" id="tbRole">—</div></div>
+      <div class="tb-stat"><div class="lbl">Date</div><div class="val" id="tbDate">—</div></div>
+      <div class="tb-stat"><div class="lbl">Time</div><div class="val" id="tbClock">--:--</div></div>
+      <button class="icon-btn" id="btnLogout">Log out</button>
+    </div>
+  </div>
+
+  <main>
+    <div class="view active" id="view-floor"><div class="pad">
+      <div class="head-row"><h2 id="floorTitle">Floor Plan</h2>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--sage)"></i>Available</span>
+          <span><i class="dot" style="background:var(--amber)"></i>Occupied</span>
+          <span><i class="dot" style="background:var(--plum)"></i>Reserved</span>
+        </div>
+      </div>
+      <div class="table-grid" id="tableGrid"></div>
+    </div></div>
+
+    <div class="view" id="view-order">
+      <div class="order-wrap">
+        <div class="order-main">
+          <div class="order-topstrip" id="orderTopStrip"></div>
+          <div class="menu-cats" id="menuCats"></div>
+          <div class="menu-items" id="menuItems"></div>
+        </div>
+        <div class="order-side" id="orderSide"></div>
+      </div>
+    </div>
+
+    <div class="view" id="view-history"><div class="pad">
+      <div class="head-row"><h2>Order History</h2></div>
+      <div class="filters-row" id="histFilters"></div>
+      <div id="histTableWrap"></div>
+    </div></div>
+
+    <div class="view" id="view-cash"><div class="pad">
+      <div class="head-row"><h2>Cash &amp; Shifts</h2></div>
+      <div id="cashBody"></div>
+    </div></div>
+
+    <div class="view" id="view-dashboard"><div class="pad">
+      <div class="head-row"><h2 id="dashTitle">Dashboard</h2></div>
+      <div id="dashBody"></div>
+    </div></div>
+
+    <div class="view" id="view-audit"><div class="pad">
+      <div class="head-row"><h2>Audit Trail</h2></div>
+      <div id="auditBody"></div>
+    </div></div>
+
+    <div class="view" id="view-settings"><div class="pad">
+      <div class="head-row"><h2>Settings</h2></div>
+      <div id="settingsBody"></div>
+    </div></div>
+  </main>
+</div>
+
+<div class="ctx-menu" id="ctxMenu" style="display:none;"></div>
+
+<div class="modal-overlay" id="modalCheckout">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Checkout</h3><button class="modal-close" data-close="modalCheckout">&times;</button></div>
+    <div class="modal-body" id="checkoutBody"></div>
+    <div class="modal-foot"><button class="btn btn-outline-dark" data-close="modalCheckout" style="flex:1;">Cancel</button><button class="btn btn-amber" id="btnConfirmPay" style="flex:1;">Confirm Payment</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalReceipt">
+  <div class="modal-box ticket">
+    <div class="modal-head"><h3>Receipt</h3><button class="modal-close" data-close="modalReceipt">&times;</button></div>
+    <div class="modal-body" id="receiptBody"></div>
+    <div class="modal-foot"><button class="btn btn-outline" data-close="modalReceipt" style="flex:1;">Close</button><button class="btn btn-dark" id="btnPrintReceipt" style="flex:1;">Print Receipt</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalGeneric">
+  <div class="modal-box" id="genericBox">
+    <div class="modal-head"><h3 id="genericTitle">—</h3><button class="modal-close" id="genericClose">&times;</button></div>
+    <div class="modal-body" id="genericBody"></div>
+    <div class="modal-foot" id="genericFoot"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div id="printArea"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ===================== SEED DATA ===================== */
+const DEFAULT_SETTINGS = {
+  restaurantName:"Asmara & Addis", address:"14 Marina Road, Conakry", taxId:"TX-2291-04",
+  taxRate:8, serviceChargeRate:10, currency:"$", tableCount:12,
+  tipEnabled:true, serviceChargeEnabled:true, waiterCanDiscount:true, receiptCounter:1
+};
+const DEFAULT_USERS = [
+  {id:"u1", name:"Grace Boma", role:"manager", pin:"1111"},
+  {id:"u2", name:"Youssef Camara", role:"cashier", pin:"2222"},
+  {id:"u3", name:"Aicha Diallo", role:"waiter", pin:"3333"},
+  {id:"u4", name:"Moussa Keita", role:"waiter", pin:"3334"}
+];
+const DEFAULT_MENU = [
+  {id:"m1",category:"Sambusa & Starters",name:"Meat Sambusa",description:"Crisp pastry, spiced minced beef, onion",price:5.5,veg:false,available:true},
+  {id:"m2",category:"Sambusa & Starters",name:"Lentil Sambusa",description:"Crisp pastry, spiced red lentil filling",price:5.0,veg:true,available:true},
+  {id:"m3",category:"Sambusa & Starters",name:"Dabo Kolo",description:"Toasted spiced wheat crackers",price:4.0,veg:true,available:true},
+  {id:"m4",category:"Wat & Tibs",name:"Doro Wat",description:"Berbere chicken stew, hard-boiled egg",price:13.5,veg:false,available:true},
+  {id:"m5",category:"Wat & Tibs",name:"Zigni",description:"Eritrean-style spiced beef stew",price:12.0,veg:false,available:true},
+  {id:"m6",category:"Wat & Tibs",name:"Beef Tibs",description:"Sauteed beef, rosemary, onion, jalapeno",price:12.5,veg:false,available:true},
+  {id:"m7",category:"Wat & Tibs",name:"Kitfo",description:"Seasoned minced beef, spiced butter, mitmita (cooked to order)",price:13.0,veg:false,available:false},
+  {id:"m8",category:"Fasting (Vegetarian)",name:"Shiro Wat",description:"Spiced chickpea stew, garlic, berbere",price:9.0,veg:true,available:true},
+  {id:"m9",category:"Fasting (Vegetarian)",name:"Misir Wat",description:"Red lentils, berbere, slow-simmered",price:8.5,veg:true,available:true},
+  {id:"m10",category:"Fasting (Vegetarian)",name:"Gomen",description:"Collard greens, garlic, ginger",price:7.0,veg:true,available:true},
+  {id:"m11",category:"Combination Platters",name:"Beyaynetu",description:"Vegetarian combination on injera, chef's selection",price:11.5,veg:true,available:true},
+  {id:"m12",category:"Combination Platters",name:"Asmara & Addis Special",description:"Doro wat, zigni and beef tibs on injera",price:16.5,veg:false,available:true},
+  {id:"m13",category:"Breads & Sides",name:"Extra Injera",description:"Sourdough teff flatbread, basket of two",price:2.5,veg:true,available:true},
+  {id:"m14",category:"Beverages & Dessert",name:"Buna (Coffee Ceremony)",description:"Traditional Ethiopian coffee, cardamom",price:3.5,veg:true,available:true},
+  {id:"m15",category:"Beverages & Dessert",name:"Mango Juice",description:"Fresh pressed, seasonal",price:3.5,veg:true,available:true}
+];
+const TABLE_PATTERN = [2,4,4,6,2,8];
+
+/* ===================== PERSISTENCE ===================== */
+function load(key, fallback){ try{ const r=localStorage.getItem(key); return r===null?fallback:JSON.parse(r); }catch(e){ return fallback; } }
+function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.warn("storage failed", e); } }
+function uid(p){ return (p||'id')+'-'+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4); }
+
+let settings = load('posv2_settings', DEFAULT_SETTINGS);
+let users = load('posv2_users', DEFAULT_USERS);
+let menu = load('posv2_menu', DEFAULT_MENU);
+let tables = load('posv2_tables', null);
+if(!tables){
+  tables = [];
+  for(let i=0;i<settings.tableCount;i++){
+    const num=i+1;
+    tables.push({id:uid('t'), num, capacity:TABLE_PATTERN[i%TABLE_PATTERN.length], waiterId: (num%2===0? 'u4':'u3') });
+  }
+  save('posv2_tables', tables);
+}
+let activeOrders = load('posv2_activeOrders', []);
+let history = load('posv2_history', []);
+let waiterShifts = load('posv2_waiterShifts', []);
+let cashierShifts = load('posv2_cashierShifts', []);
+let handovers = load('posv2_handovers', []);
+let auditLog = load('posv2_audit', []);
+let session = load('posv2_session', null);
+
+function persistAll(){
+  save('posv2_settings', settings); save('posv2_users', users); save('posv2_menu', menu);
+  save('posv2_tables', tables); save('posv2_activeOrders', activeOrders); save('posv2_history', history);
+  save('posv2_waiterShifts', waiterShifts); save('posv2_cashierShifts', cashierShifts);
+  save('posv2_handovers', handovers); save('posv2_audit', auditLog); save('posv2_session', session);
+}
+
+let currentUser = session ? users.find(u=>u.id===session.userId) || null : null;
+
+/* ===================== PERMISSIONS ===================== */
+const PERMS = {
+  manager: new Set(['assignWaiter','reserveTable','configureTables','manageMenu','manageUsers','manageSettings','applyDiscount','processPayment','viewAllOrders','reprintAny','confirmHandover','openCashierShift','closeCashierShift','viewAudit','reopenTransaction','viewAllBalances','recordOtherCashMovement']),
+  cashier: new Set(['assignWaiter','reserveTable','applyDiscount','processPayment','viewAllOrders','reprintAny','confirmHandover','openCashierShift','closeCashierShift','viewAllBalances','recordOtherCashMovement']),
+  waiter: new Set(['processPayment','recordHandover','openWaiterShift','closeWaiterShift','reprintOwn'])
+};
+function can(action){
+  if(!currentUser) return false;
+  if(currentUser.role==='waiter' && action==='applyDiscount') return !!settings.waiterCanDiscount;
+  const set = PERMS[currentUser.role];
+  return !!(set && set.has(action));
+}
+function requireOrToast(action){
+  if(can(action)) return true;
+  showToast('Not authorized for this action.');
+  return false;
+}
+
+/* ===================== UTIL ===================== */
+function fmt(n){ return settings.currency + (Math.round((n||0)*100)/100).toFixed(2); }
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function itemInitials(name){
+  const words = String(name||'').trim().split(/\s+/).filter(Boolean);
+  if(words.length===0) return '?';
+  if(words.length===1) return words[0].slice(0,2).toUpperCase();
+  return (words[0][0]+words[1][0]).toUpperCase();
+}
+function fileToCompressedDataUrl(file, maxW, quality){
+  maxW = maxW || 480; quality = quality || 0.72;
+  return new Promise((resolve, reject)=>{
+    if(!file){ resolve(null); return; }
+    const reader = new FileReader();
+    reader.onerror = ()=>reject(reader.error);
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onerror = ()=>reject(new Error('Could not read image'));
+      img.onload = ()=>{
+        const scale = Math.min(1, maxW/img.width);
+        const w = Math.max(1, Math.round(img.width*scale));
+        const h = Math.max(1, Math.round(img.height*scale));
+        const canvas = document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+let toastTimer=null;
+function showToast(msg){
+  const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'), 2400);
+}
+function audit(action, ref, prevValue, newValue){
+  auditLog.push({id:uid('a'), at:Date.now(), user:currentUser?currentUser.name:'system', role:currentUser?currentUser.role:'-', action, ref: ref||'', prevValue: prevValue==null?'':String(prevValue), newValue: newValue==null?'':String(newValue)});
+}
+function userById(id){ return users.find(u=>u.id===id); }
+function tableById(id){ return tables.find(t=>t.id===id); }
+
+/* ===================== LOGIN ===================== */
+let loginSelectedUser=null, pinBuffer='';
+function roleClass(role){ return 'role-'+role; }
+function avatarInitial(name){ return String(name||'?').trim().charAt(0).toUpperCase(); }
+function renderUserGrid(){
+  const grid=document.getElementById('userGrid');
+  grid.innerHTML = users.map(u=>`
+    <div class="user-card" data-uid="${u.id}">
+      <div class="avatar-circle ${roleClass(u.role)}">${avatarInitial(u.name)}</div>
+      <div class="un">${escapeHtml(u.name)}</div>
+      <div class="role-pill ${roleClass(u.role)}">${u.role}</div>
+    </div>
+  `).join('');
+  grid.querySelectorAll('.user-card').forEach(c=>c.addEventListener('click', ()=>selectLoginUser(c.dataset.uid)));
+}
+function selectLoginUser(id){
+  loginSelectedUser = userById(id); pinBuffer='';
+  document.getElementById('loginStepUser').style.display='none';
+  document.getElementById('loginStepPin').style.display='flex';
+  document.getElementById('pinAvatar').textContent = avatarInitial(loginSelectedUser.name);
+  document.getElementById('pinAvatar').className = 'avatar-lg '+roleClass(loginSelectedUser.role);
+  document.getElementById('pinUserName').textContent = loginSelectedUser.name;
+  const roleEl = document.getElementById('pinUserRole');
+  roleEl.textContent = loginSelectedUser.role; roleEl.className = 'role-pill '+roleClass(loginSelectedUser.role);
+  document.getElementById('loginError').textContent='';
+  renderPinDots(); renderPinPad();
+}
+function backToUserStep(){
+  loginSelectedUser=null; pinBuffer='';
+  document.getElementById('loginStepPin').style.display='none';
+  document.getElementById('loginStepUser').style.display='block';
+  document.querySelectorAll('.user-card').forEach(c=>c.classList.remove('selected'));
+  document.getElementById('loginError').textContent='';
+}
+document.getElementById('pinBackBtn').addEventListener('click', backToUserStep);
+function renderPinDots(){
+  document.getElementById('pinDots').innerHTML = [0,1,2,3].map(i=>`<div class="pin-dot ${i<pinBuffer.length?'filled':''}"></div>`).join('');
+}
+function renderPinPad(){
+  const pad=document.getElementById('pinPad');
+  const keys=[
+    {k:'1',label:'1'},{k:'2',label:'2'},{k:'3',label:'3'},
+    {k:'4',label:'4'},{k:'5',label:'5'},{k:'6',label:'6'},
+    {k:'7',label:'7'},{k:'8',label:'8'},{k:'9',label:'9'},
+    {k:'C',label:'⌫', fn:true},{k:'0',label:'0'},{k:'OK',label:'Enter', fn:true, ok:true}
+  ];
+  pad.innerHTML = keys.map(x=>`<button class="${x.fn?'fn':''} ${x.ok?'ok':''}" data-k="${x.k}" aria-label="${x.k==='C'?'Clear':(x.k==='OK'?'Enter':x.k)}">${x.label}</button>`).join('');
+  pad.querySelectorAll('button').forEach(b=>b.addEventListener('click', ()=>pinKey(b.dataset.k)));
+}
+function pinKey(k){
+  const err=document.getElementById('loginError');
+  if(k==='C'){ pinBuffer=''; err.textContent=''; renderPinDots(); return; }
+  if(k==='OK'){ attemptLogin(); return; }
+  if(pinBuffer.length<4){ pinBuffer+=k; renderPinDots(); }
+  if(pinBuffer.length===4) attemptLogin();
+}
+function attemptLogin(){
+  const err=document.getElementById('loginError');
+  if(!loginSelectedUser){ err.textContent='Select a user first.'; return; }
+  if(loginSelectedUser.pin===pinBuffer){
+    currentUser = loginSelectedUser;
+    session = {userId:currentUser.id};
+    audit('Login','user:'+currentUser.id,'', currentUser.name);
+    persistAll();
+    enterApp();
+  } else {
+    err.textContent='Incorrect PIN — try again.'; pinBuffer=''; renderPinDots();
+  }
+}
+document.getElementById('btnLogout').addEventListener('click', ()=>{
+  audit('Logout','user:'+(currentUser?currentUser.id:''),'','');
+  currentUser=null; session=null; persistAll();
+  document.getElementById('app').classList.remove('active');
+  document.getElementById('loginScreen').style.display='flex';
+  backToUserStep();
+});
+function updateLoginClock(){
+  const dEl=document.getElementById('loginDate'), tEl=document.getElementById('loginClock');
+  if(!dEl||!tEl) return;
+  const now=new Date();
+  dEl.textContent = now.toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'});
+  tEl.textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+setInterval(updateLoginClock, 1000);
+
+function enterApp(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').classList.add('active');
+  renderNavTabs();
+  renderTopbar();
+  switchView('floor');
+}
+
+/* ===================== TOPBAR / NAV ===================== */
+const NAV = [
+  {key:'floor', label:'Floor', roles:['manager','cashier','waiter']},
+  {key:'history', label:'History', roles:['manager','cashier','waiter']},
+  {key:'cash', label:'Cash', roles:['manager','cashier','waiter']},
+  {key:'dashboard', label:'Dashboard', roles:['manager','cashier','waiter']},
+  {key:'audit', label:'Audit', roles:['manager']},
+  {key:'settings', label:'Settings', roles:['manager']}
+];
+function renderNavTabs(){
+  const nav=document.getElementById('navTabs');
+  const items = NAV.filter(n=>n.roles.includes(currentUser.role));
+  nav.innerHTML = items.map(n=>`<button class="nav-tab" data-view="${n.key}">${n.label}</button>`).join('');
+  nav.querySelectorAll('.nav-tab').forEach(b=>b.addEventListener('click', ()=>switchView(b.dataset.view)));
+}
+function renderTopbar(){
+  document.getElementById('tbName').textContent = settings.restaurantName;
+  document.getElementById('tbUser').textContent = currentUser.name;
+  document.getElementById('tbRole').textContent = currentUser.role;
+  const now=new Date();
+  document.getElementById('tbDate').textContent = now.toLocaleDateString(undefined,{month:'short',day:'2-digit',year:'numeric'});
+  document.getElementById('tbClock').textContent = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  const h=now.getHours();
+  let shift='NIGHT SHIFT';
+  if(h>=5&&h<12) shift='MORNING SHIFT'; else if(h>=12&&h<17) shift='AFTERNOON SHIFT'; else if(h>=17&&h<22) shift='EVENING SHIFT';
+  document.getElementById('tbShift').textContent = shift;
+}
+setInterval(()=>{ if(currentUser) renderTopbar(); }, 20000);
+
+let currentView='floor', currentTableId=null, currentOrderId=null, currentCategory=null;
+function switchView(view){
+  currentView=view;
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+(view==='order'?'order':view)).classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.toggle('active', t.dataset.view===view));
+  if(view==='floor') renderFloor();
+  if(view==='history') renderHistory();
+  if(view==='cash') renderCash();
+  if(view==='dashboard') renderDashboard();
+  if(view==='audit'){ if(!requireOrToast('viewAudit')){ switchView('floor'); return; } renderAudit(); }
+  if(view==='settings'){ if(!requireOrToast('manageSettings')){ switchView('floor'); return; } renderSettings(); }
+}
+
+/* ===================== FLOOR ===================== */
+function getTableOrders(tableId){ return activeOrders.filter(o=>o.tableId===tableId); }
+function getTableStatus(t){ if(getTableOrders(t.id).length>0) return 'occupied'; if(t.manualReserved) return 'reserved'; return 'available'; }
+function visibleTables(){
+  if(currentUser.role==='waiter') return tables.filter(t=>t.waiterId===currentUser.id);
+  return tables;
+}
+function renderFloor(){
+  document.getElementById('floorTitle').textContent = currentUser.role==='waiter' ? 'My Tables' : 'Floor Plan';
+  const grid=document.getElementById('tableGrid');
+  const list = visibleTables().slice().sort((a,b)=>a.num-b.num);
+  if(list.length===0){ grid.innerHTML='<div class="empty-note">No tables assigned to you yet.</div>'; return; }
+  grid.innerHTML = list.map(t=>{
+    const status=getTableStatus(t);
+    const orders=getTableOrders(t.id);
+    const total=orders.reduce((s,o)=>s+calcTotals(o).grandTotal,0);
+    const w=userById(t.waiterId);
+    return `<div class="tcard st-${status}" data-tid="${t.id}">
+      <div class="sbar"></div>
+      <div><div class="tnum">T${t.num}</div><div class="tcap">Seats ${t.capacity}</div></div>
+      <div class="tfoot">
+        <div><div class="tstatus">${status}</div><div class="twaiter">${w?escapeHtml(w.name):'Unassigned'}</div></div>
+        <div class="ttotal">${total>0?fmt(total):''}</div>
+      </div>
+    </div>`;
+  }).join('');
+  grid.querySelectorAll('.tcard').forEach(card=>{
+    card.addEventListener('click', ()=>openTable(card.dataset.tid));
+    card.addEventListener('contextmenu', (e)=>{ e.preventDefault(); showTableContextMenu(e, tableById(card.dataset.tid)); });
+  });
+}
+function showTableContextMenu(e, t){
+  const menuEl=document.getElementById('ctxMenu');
+  const status=getTableStatus(t);
+  let items='';
+  if(can('reserveTable')){
+    if(status==='available') items+=`<button class="ctx-item" data-act="reserve">Mark as Reserved</button>`;
+    else if(status==='reserved') items+=`<button class="ctx-item" data-act="clear-reserve">Clear Reservation</button>`;
+    else items+=`<button class="ctx-item" disabled>Table is occupied</button>`;
+  }
+  if(can('assignWaiter')) items+=`<button class="ctx-item" data-act="assign">Assign Waiter…</button>`;
+  items+=`<button class="ctx-item" data-act="open">Open Table</button>`;
+  menuEl.innerHTML=items;
+  menuEl.style.left=Math.min(e.clientX, window.innerWidth-210)+'px';
+  menuEl.style.top=Math.min(e.clientY, window.innerHeight-140)+'px';
+  menuEl.style.display='block';
+  menuEl.querySelectorAll('[data-act]').forEach(btn=>{
+    btn.onclick=()=>{
+      const act=btn.dataset.act;
+      if(act==='reserve'){ if(requireOrToast('reserveTable')){ t.manualReserved=true; audit('Table reserved','table:'+t.num,'','reserved'); persistAll(); renderFloor(); showToast('Table T'+t.num+' marked reserved'); } }
+      if(act==='clear-reserve'){ if(requireOrToast('reserveTable')){ t.manualReserved=false; audit('Reservation cleared','table:'+t.num,'reserved',''); persistAll(); renderFloor(); showToast('Reservation cleared'); } }
+      if(act==='assign'){ if(requireOrToast('assignWaiter')) openAssignWaiterModal(t); }
+      if(act==='open'){ openTable(t.id); }
+      hideContextMenu();
+    };
+  });
+}
+function hideContextMenu(){ document.getElementById('ctxMenu').style.display='none'; }
+document.addEventListener('click', (e)=>{
+  const cm=document.getElementById('ctxMenu');
+  if(cm.style.display==='block' && !cm.contains(e.target)) hideContextMenu();
+});
+function openAssignWaiterModal(t){
+  const waiters = users.filter(u=>u.role==='waiter');
+  const body = `<div class="form-field full"><label>Waiter for Table ${t.num}</label>
+    <select id="assignWaiterSelect">
+      <option value="">— Unassigned —</option>
+      ${waiters.map(w=>`<option value="${w.id}" ${t.waiterId===w.id?'selected':''}>${escapeHtml(w.name)}</option>`).join('')}
+    </select></div>`;
+  openGeneric('Assign Waiter', body, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Save', variant:'btn-amber', handler:()=>{
+      const val=document.getElementById('assignWaiterSelect').value;
+      const prev = t.waiterId;
+      t.waiterId = val||null;
+      audit('Waiter assigned','table:'+t.num, prev?userById(prev)&&userById(prev).name:'—', val?userById(val).name:'Unassigned');
+      persistAll(); renderFloor(); closeGeneric(); showToast('Waiter updated for T'+t.num);
+    }}
+  ]);
+}
+
+/* ===================== ORDER VIEW ===================== */
+function openTable(tableId){
+  const t=tableById(tableId);
+  if(currentUser.role==='waiter' && t.waiterId!==currentUser.id){ showToast('This table is not assigned to you.'); return; }
+  currentTableId=tableId;
+  t.manualReserved=false;
+  let orders=getTableOrders(tableId);
+  if(orders.length===0){ orders=[createOrder(tableId)]; }
+  currentOrderId=orders[0].id;
+  currentCategory = menu[0] ? menu[0].category : null;
+  persistAll();
+  currentView='order';
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-order').classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(t2=>t2.classList.remove('active'));
+  renderOrderView();
+}
+function createOrder(tableId){
+  const t=tableById(tableId);
+  const w = t.waiterId ? userById(t.waiterId) : null;
+  const order={ id:uid('o'), tableId, waiterId:t.waiterId||null, waiterName: w?w.name:'', items:[], discount:{type:'percent',value:0}, serviceChargeEnabled:true, tip:0, createdAt:Date.now() };
+  activeOrders.push(order);
+  audit('Order created','table:'+t.num,'', order.id);
+  return order;
+}
+function getCurrentOrder(){ return activeOrders.find(o=>o.id===currentOrderId); }
+function calcTotals(order){
+  const subtotal=order.items.reduce((s,i)=>s+i.price*i.qty,0);
+  let discountAmount=0;
+  if(order.discount.type==='percent') discountAmount = subtotal*(Number(order.discount.value)||0)/100;
+  else discountAmount = Number(order.discount.value)||0;
+  discountAmount=Math.max(0, Math.min(discountAmount, subtotal));
+  const discountedSubtotal=subtotal-discountAmount;
+  const serviceCharge=(settings.serviceChargeEnabled && order.serviceChargeEnabled) ? discountedSubtotal*settings.serviceChargeRate/100 : 0;
+  const tax=discountedSubtotal*settings.taxRate/100;
+  const tip=settings.tipEnabled?(Number(order.tip)||0):0;
+  const grandTotal=discountedSubtotal+serviceCharge+tax+tip;
+  return {subtotal, discountAmount, discountedSubtotal, serviceCharge, tax, tip, grandTotal};
+}
+
+function renderOrderView(){
+  const t=tableById(currentTableId);
+  if(!t){ switchView('floor'); return; }
+  const orders=getTableOrders(t.id);
+  if(orders.length===0){ switchView('floor'); return; }
+  if(!orders.find(o=>o.id===currentOrderId)) currentOrderId=orders[0].id;
+  const w = t.waiterId ? userById(t.waiterId) : null;
+
+  const strip=document.getElementById('orderTopStrip');
+  strip.innerHTML=`
+    <button class="back-btn" id="btnBackFloor">&larr; Floor</button>
+    <div class="ot-tinfo"><div class="n">Table ${t.num}</div><div class="c">Seats ${t.capacity}</div></div>
+    <div class="ot-waiter">Waiter: <strong>${w?escapeHtml(w.name):'Unassigned'}</strong></div>
+    <div class="checks-strip" id="checksStrip"></div>
+  `;
+  document.getElementById('btnBackFloor').onclick=()=>{ switchView('floor'); };
+
+  const checksStrip=document.getElementById('checksStrip');
+  checksStrip.innerHTML = orders.map((o,idx)=>`<button class="check-tab ${o.id===currentOrderId?'active':''}" data-oid="${o.id}">Check ${idx+1}</button>`).join('') + `<button class="check-add" id="btnAddCheck" title="New check (split by item)">+</button>`;
+  checksStrip.querySelectorAll('[data-oid]').forEach(b=>b.onclick=()=>{ currentOrderId=b.dataset.oid; renderOrderView(); });
+  document.getElementById('btnAddCheck').onclick=()=>{ const o=createOrder(t.id); currentOrderId=o.id; persistAll(); renderFloor(); renderOrderView(); };
+
+  const categories=[...new Set(menu.map(m=>m.category))];
+  if(!categories.includes(currentCategory)) currentCategory=categories[0];
+  const catsEl=document.getElementById('menuCats');
+  catsEl.innerHTML=categories.map(c=>`<button class="cat-tab ${c===currentCategory?'active':''}" data-cat="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join('');
+  catsEl.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{ currentCategory=b.dataset.cat; renderOrderView(); });
+
+  const itemsEl=document.getElementById('menuItems');
+  const items=menu.filter(m=>m.category===currentCategory);
+  itemsEl.innerHTML = items.map(m=>`
+    <div class="item-card ${m.available?'':'unavailable'}" data-mid="${m.id}">
+      <div class="item-photo">${m.image ? `<img src="${escapeHtml(m.image)}" alt="${escapeHtml(m.name)}">` : `<div class="item-photo-placeholder">${escapeHtml(itemInitials(m.name))}</div>`}</div>
+      <div class="item-content">
+        <div class="item-top"><div class="item-name">${escapeHtml(m.name)}</div><div class="veg-badge ${m.veg?'':'nonveg'}"><span class="d"></span></div></div>
+        <div class="item-desc">${escapeHtml(m.description)}</div>
+        <div class="item-bottom"><div class="item-price">${fmt(m.price)}</div>${m.available?'':'<div class="unavail-tag">Unavailable</div>'}</div>
+      </div>
+    </div>
+  `).join('');
+  itemsEl.querySelectorAll('.item-card').forEach(card=>{
+    card.addEventListener('click', ()=>{
+      const m=menu.find(x=>x.id===card.dataset.mid);
+      if(!m.available) return;
+      addItemToOrder(m);
+    });
+  });
+
+  renderOrderSide();
+}
+function addItemToOrder(menuItem){
+  const order=getCurrentOrder();
+  const existing=order.items.find(i=>i.itemId===menuItem.id && !i.note);
+  if(existing) existing.qty++;
+  else order.items.push({id:uid('li'), itemId:menuItem.id, name:menuItem.name, price:menuItem.price, qty:1, note:''});
+  audit('Item added', 'order:'+order.id, '', menuItem.name);
+  persistAll(); renderFloor(); renderOrderSide();
+}
+function renderOrderSide(){
+  const order=getCurrentOrder();
+  const side=document.getElementById('orderSide');
+  if(!order){ side.innerHTML=''; return; }
+  const t=tableById(order.tableId);
+  const orders=getTableOrders(t.id);
+  const totals=calcTotals(order);
+  const discountAllowed = can('applyDiscount');
+  const payAllowed = can('processPayment') && (currentUser.role!=='waiter' || t.waiterId===currentUser.id);
+
+  side.innerHTML=`
+    <div class="side-scroll">
+      <div class="side-sub">Order Items</div>
+      ${order.items.length===0?'<div class="side-empty">No items yet — tap a menu item to add it.</div>':''}
+      ${order.items.map((it,idx)=>`
+        <div class="line-item">
+          <div class="li-top"><div class="li-name">${escapeHtml(it.name)}</div><button class="li-remove" data-remove="${idx}">&times;</button></div>
+          <div class="li-mid">
+            <div class="qty-ctl"><button data-dec="${idx}">−</button><span>${it.qty}</span><button data-inc="${idx}">+</button></div>
+            <div class="li-price">${fmt(it.price*it.qty)}</div>
+          </div>
+          <input class="li-note" data-note="${idx}" placeholder="Add a note (e.g. no onions)" value="${escapeHtml(it.note)}">
+          ${orders.length>1?`<select class="li-move" data-move="${idx}">
+            <option value="">Move to…</option>
+            ${orders.filter(o=>o.id!==order.id).map((o,i2)=>`<option value="${o.id}">Check ${orders.indexOf(o)+1}</option>`).join('')}
+          </select>`:''}
+        </div>
+      `).join('')}
+
+      <div class="side-block">
+        <h4>Discount ${discountAllowed?'':'(not authorized)'}</h4>
+        <div class="disc-row">
+          <div class="toggle-pair">
+            <button data-disctype="flat" class="${order.discount.type==='flat'?'on':''}" ${discountAllowed?'':'disabled'}>Flat</button>
+            <button data-disctype="percent" class="${order.discount.type==='percent'?'on':''}" ${discountAllowed?'':'disabled'}>%</button>
+          </div>
+          <input type="number" min="0" id="discValue" value="${order.discount.value}" step="0.5" ${discountAllowed?'':'disabled'}>
+        </div>
+      </div>
+
+      ${settings.serviceChargeEnabled?`<div class="check-row"><input type="checkbox" id="scEnabled" ${order.serviceChargeEnabled?'checked':''}><label for="scEnabled">Apply service charge (${settings.serviceChargeRate}%)</label></div>`:''}
+      ${settings.tipEnabled?`<div class="side-block"><h4>Tip</h4><input type="number" min="0" id="tipValue" value="${order.tip}" step="0.5"></div>`:''}
+
+      <div class="totals">
+        <div class="trow"><span>Subtotal</span><span>${fmt(totals.subtotal)}</span></div>
+        ${totals.discountAmount>0?`<div class="trow neg"><span>Discount</span><span>-${fmt(totals.discountAmount)}</span></div>`:''}
+        ${totals.serviceCharge>0?`<div class="trow"><span>Service charge</span><span>${fmt(totals.serviceCharge)}</span></div>`:''}
+        <div class="trow"><span>Tax (${settings.taxRate}%)</span><span>${fmt(totals.tax)}</span></div>
+        ${totals.tip>0?`<div class="trow"><span>Tip</span><span>${fmt(totals.tip)}</span></div>`:''}
+        <div class="trow grand"><span>Total</span><span>${fmt(totals.grandTotal)}</span></div>
+      </div>
+    </div>
+    <div class="side-actions">
+      <button class="btn btn-outline" id="btnSaveDraft">Save Draft</button>
+      <button class="btn btn-amber" id="btnCheckout" ${order.items.length===0||!payAllowed?'disabled':''}>${payAllowed?'Checkout':'Not authorized'}</button>
+      <button class="btn btn-outline" id="btnDeleteCheck">Remove This Check</button>
+    </div>
+  `;
+
+  side.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{ audit('Item removed','order:'+order.id,order.items[+b.dataset.remove].name,''); order.items.splice(+b.dataset.remove,1); persistAll(); renderFloor(); renderOrderSide(); });
+  side.querySelectorAll('[data-inc]').forEach(b=>b.onclick=()=>{ order.items[+b.dataset.inc].qty++; persistAll(); renderFloor(); renderOrderSide(); });
+  side.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>{ const idx=+b.dataset.dec; order.items[idx].qty--; if(order.items[idx].qty<=0) order.items.splice(idx,1); persistAll(); renderFloor(); renderOrderSide(); });
+  side.querySelectorAll('[data-note]').forEach(inp=>inp.addEventListener('change', ()=>{ order.items[+inp.dataset.note].note=inp.value; persistAll(); }));
+  side.querySelectorAll('[data-move]').forEach(sel=>sel.addEventListener('change', ()=>{
+    if(!sel.value) return;
+    const idx=+sel.dataset.move;
+    const target=activeOrders.find(o=>o.id===sel.value);
+    const [moved]=order.items.splice(idx,1);
+    target.items.push(moved);
+    audit('Item moved between checks', 'order:'+order.id, order.id, target.id);
+    persistAll(); renderFloor(); renderOrderSide();
+  }));
+  side.querySelectorAll('[data-disctype]').forEach(b=>b.onclick=()=>{ if(!discountAllowed) return; order.discount.type=b.dataset.disctype; persistAll(); renderOrderSide(); });
+  const dv=side.querySelector('#discValue');
+  if(dv) dv.addEventListener('input', ()=>{ if(!discountAllowed) return; const prev=order.discount.value; order.discount.value=Number(dv.value)||0; audit('Discount applied','order:'+order.id, prev, order.discount.value); persistAll(); renderOrderSide(); });
+  const sc=side.querySelector('#scEnabled');
+  if(sc) sc.addEventListener('change', ()=>{ order.serviceChargeEnabled=sc.checked; persistAll(); renderOrderSide(); });
+  const tv=side.querySelector('#tipValue');
+  if(tv) tv.addEventListener('input', ()=>{ order.tip=Number(tv.value)||0; persistAll(); renderOrderSide(); });
+
+  side.querySelector('#btnSaveDraft').onclick=()=>{ persistAll(); showToast('Draft saved'); };
+  const coBtn=side.querySelector('#btnCheckout');
+  if(coBtn && !coBtn.disabled) coBtn.onclick=()=>{ openCheckout(order.id); };
+  side.querySelector('#btnDeleteCheck').onclick=()=>{
+    activeOrders=activeOrders.filter(o=>o.id!==order.id);
+    audit('Check removed','order:'+order.id,'','');
+    const remaining=getTableOrders(currentTableId);
+    if(remaining.length>0){ currentOrderId=remaining[0].id; persistAll(); renderFloor(); renderOrderView(); }
+    else { persistAll(); renderFloor(); switchView('floor'); }
+  };
+}
+
+/* ===================== SHIFT LOOKUPS ===================== */
+function getOpenWaiterShift(waiterId){ return waiterShifts.find(s=>s.waiterId===waiterId && s.status==='open'); }
+function getOpenCashierShift(cashierId){ return cashierShifts.find(s=>s.cashierId===cashierId && s.status==='open'); }
+function handoversForShift(shiftId){ return handovers.filter(h=>h.waiterShiftId===shiftId); }
+function waiterCashInHand(shift){
+  if(!shift) return 0;
+  const given = handoversForShift(shift.id).filter(h=>h.status!=='cancelled').reduce((s,h)=>s+h.amount,0);
+  return Math.max(0, shift.cashCollected - given);
+}
+
+/* ===================== CHECKOUT ===================== */
+let checkoutOrderId=null, payMethod='cash', splitParts=[];
+function openCheckout(orderId){
+  if(!requireOrToast('processPayment')) return;
+  const order=activeOrders.find(o=>o.id===orderId);
+  const t=tableById(order.tableId);
+  if(currentUser.role==='waiter'){
+    if(t.waiterId!==currentUser.id){ showToast('You can only take payment for your own tables.'); return; }
+    if(!getOpenWaiterShift(currentUser.id)){ showToast('Open your shift before processing payment (Cash tab).'); return; }
+  }
+  checkoutOrderId=orderId; payMethod='cash';
+  const totals=calcTotals(order);
+  splitParts=[{method:'cash', amount:Math.round(totals.grandTotal*100)/100}];
+  renderCheckoutBody(); openModal('modalCheckout');
+}
+function renderCheckoutBody(){
+  const order=activeOrders.find(o=>o.id===checkoutOrderId);
+  const totals=calcTotals(order);
+  const body=document.getElementById('checkoutBody');
+  body.innerHTML=`
+    <div class="due-box"><div class="lbl">Amount Due</div><div class="amt">${fmt(totals.grandTotal)}</div></div>
+    <div class="pay-tabs">
+      <button class="pay-tab ${payMethod==='cash'?'active':''}" data-pm="cash">Cash</button>
+      <button class="pay-tab ${payMethod==='card'?'active':''}" data-pm="card">Card</button>
+      <button class="pay-tab ${payMethod==='upi'?'active':''}" data-pm="upi">UPI</button>
+      <button class="pay-tab ${payMethod==='split'?'active':''}" data-pm="split">Split</button>
+    </div>
+    <div class="pay-panel ${payMethod==='cash'?'active':''}" id="panelCash">
+      <div class="form-field"><label>Amount Tendered</label><input type="number" id="cashTendered" min="0" step="0.5" value="${totals.grandTotal.toFixed(2)}"></div>
+      <div class="change-box" id="changeBox"></div>
+    </div>
+    <div class="pay-panel ${payMethod==='card'?'active':''}" id="panelCard"><div class="form-field"><label>Card Reference (optional)</label><input type="text" id="cardRef" placeholder="Last 4 digits"></div></div>
+    <div class="pay-panel ${payMethod==='upi'?'active':''}" id="panelUpi"><div class="form-field"><label>UPI Reference (optional)</label><input type="text" id="upiRef" placeholder="Transaction ID"></div></div>
+    <div class="pay-panel ${payMethod==='split'?'active':''}" id="panelSplit">
+      <div id="splitRows"></div>
+      <button class="btn btn-outline-dark" id="btnAddSplit" style="margin-top:8px;">+ Add payment method</button>
+      <div class="split-remaining" id="splitRemaining"></div>
+    </div>
+    ${settings.tipEnabled?`<div class="side-block" style="border-top:1px solid rgba(255,255,255,0.08); margin-top:14px; padding-top:12px;"><h4 style="color:var(--slate-dim);">Tip</h4><input type="number" id="checkoutTip" min="0" step="0.5" value="${order.tip}" style="background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.1); color:var(--white); padding:9px 10px; border-radius:5px; font-size:13px; width:100%;"></div>`:''}
+  `;
+  body.querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>{ payMethod=b.dataset.pm; renderCheckoutBody(); });
+  const tendered=body.querySelector('#cashTendered');
+  function updateChange(){
+    const g=calcTotals(order).grandTotal; const val=Number(tendered.value)||0; const change=val-g;
+    document.getElementById('changeBox').innerHTML = change>=0?`Change due: <span class="amt">${fmt(change)}</span>`:`<span class="amt bad">Short by ${fmt(-change)}</span>`;
+  }
+  if(tendered){ tendered.addEventListener('input', updateChange); updateChange(); }
+  const cTip=body.querySelector('#checkoutTip');
+  if(cTip) cTip.addEventListener('input', ()=>{ order.tip=Number(cTip.value)||0; persistAll(); renderCheckoutBody(); });
+  if(payMethod==='split') renderSplitRows();
+}
+function renderSplitRows(){
+  const order=activeOrders.find(o=>o.id===checkoutOrderId);
+  const totals=calcTotals(order);
+  const rowsEl=document.getElementById('splitRows');
+  rowsEl.innerHTML = splitParts.map((p,idx)=>`
+    <div class="split-row">
+      <select data-sp-method="${idx}">
+        <option value="cash" ${p.method==='cash'?'selected':''}>Cash</option>
+        <option value="card" ${p.method==='card'?'selected':''}>Card</option>
+        <option value="upi" ${p.method==='upi'?'selected':''}>UPI</option>
+      </select>
+      <input type="number" min="0" step="0.5" data-sp-amount="${idx}" value="${p.amount}">
+      <button class="split-remove" data-sp-remove="${idx}">&times;</button>
+    </div>`).join('');
+  rowsEl.querySelectorAll('[data-sp-method]').forEach(s=>s.addEventListener('change', ()=>{ splitParts[+s.dataset.spMethod].method=s.value; }));
+  rowsEl.querySelectorAll('[data-sp-amount]').forEach(inp=>inp.addEventListener('input', ()=>{ splitParts[+inp.dataset.spAmount].amount=Number(inp.value)||0; updateSplitRemaining(totals); }));
+  rowsEl.querySelectorAll('[data-sp-remove]').forEach(b=>b.addEventListener('click', ()=>{ splitParts.splice(+b.dataset.spRemove,1); renderSplitRows(); updateSplitRemaining(totals); }));
+  updateSplitRemaining(totals);
+}
+function updateSplitRemaining(totals){
+  const sum=splitParts.reduce((s,p)=>s+(Number(p.amount)||0),0);
+  const remaining=Math.round((totals.grandTotal-sum)*100)/100;
+  const el=document.getElementById('splitRemaining'); if(!el) return;
+  el.textContent = remaining===0?'Fully allocated':(remaining>0?`Remaining: ${fmt(remaining)}`:`Over by ${fmt(-remaining)}`);
+  el.className='split-remaining '+(remaining===0?'ok':'bad');
+}
+document.getElementById('checkoutBody').addEventListener('click', (e)=>{
+  if(e.target && e.target.id==='btnAddSplit'){ splitParts.push({method:'card', amount:0}); renderSplitRows(); }
+});
+document.getElementById('btnConfirmPay').addEventListener('click', ()=>{
+  if(!requireOrToast('processPayment')) return;
+  const order=activeOrders.find(o=>o.id===checkoutOrderId);
+  if(!order) return;
+  const totals=calcTotals(order);
+  let paymentDetail={};
+  if(payMethod==='cash'){
+    const tendered=Number(document.getElementById('cashTendered').value)||0;
+    if(tendered < totals.grandTotal-0.001){ showToast('Cash tendered is less than amount due'); return; }
+    paymentDetail={tendered, change:Math.round((tendered-totals.grandTotal)*100)/100};
+  } else if(payMethod==='card'){
+    paymentDetail={reference:(document.getElementById('cardRef')||{}).value||''};
+  } else if(payMethod==='upi'){
+    paymentDetail={reference:(document.getElementById('upiRef')||{}).value||''};
+  } else if(payMethod==='split'){
+    const sum=splitParts.reduce((s,p)=>s+(Number(p.amount)||0),0);
+    if(Math.abs(sum-totals.grandTotal)>0.01){ showToast('Split amounts must equal the total due'); return; }
+    paymentDetail={parts:splitParts.slice()};
+  }
+
+  const t=tableById(order.tableId);
+  const receiptNo='R'+String(settings.receiptCounter).padStart(5,'0');
+  settings.receiptCounter++;
+  const record={
+    id:uid('h'), receiptNo, tableNum:t.num, waiter:order.waiterName||'', cashierUser:currentUser.name, cashierRole:currentUser.role,
+    items:order.items.map(i=>({name:i.name, price:i.price, qty:i.qty, note:i.note})),
+    subtotal:totals.subtotal, discountAmount:totals.discountAmount, discount:{...order.discount},
+    serviceCharge:totals.serviceCharge, tax:totals.tax, tip:totals.tip, grandTotal:totals.grandTotal,
+    paymentMethod:payMethod, paymentDetail, datetime:Date.now(), voided:false
+  };
+  history.push(record);
+  audit('Payment recorded', record.receiptNo, '', payMethod+' '+fmt(totals.grandTotal));
+
+  // waiter cash accountability
+  if(currentUser.role==='waiter'){
+    const shift=getOpenWaiterShift(currentUser.id);
+    if(shift){
+      let cashPart=0, nonCashPart=0;
+      if(payMethod==='cash') cashPart=totals.grandTotal;
+      else if(payMethod==='card'||payMethod==='upi') nonCashPart=totals.grandTotal;
+      else if(payMethod==='split') splitParts.forEach(p=>{ if(p.method==='cash') cashPart+=Number(p.amount)||0; else nonCashPart+=Number(p.amount)||0; });
+      shift.cashCollected += cashPart; shift.nonCashCollected += nonCashPart; shift.salesTotal += totals.grandTotal;
+    }
+  } else {
+    const shift=getOpenCashierShift(currentUser.id);
+    if(shift){
+      let cashPart=0, nonCashPart=0;
+      if(payMethod==='cash') cashPart=totals.grandTotal;
+      else if(payMethod==='card'||payMethod==='upi') nonCashPart=totals.grandTotal;
+      else if(payMethod==='split') splitParts.forEach(p=>{ if(p.method==='cash') cashPart+=Number(p.amount)||0; else nonCashPart+=Number(p.amount)||0; });
+      shift.cashSalesDirect += cashPart; shift.nonCashSalesDirect += nonCashPart; shift.salesTotal += totals.grandTotal;
+    }
+  }
+
+  activeOrders=activeOrders.filter(o=>o.id!==order.id);
+  const remaining=getTableOrders(t.id);
+  if(remaining.length===0){} // table becomes available automatically via getTableStatus
+  persistAll();
+  closeModal('modalCheckout');
+  renderFloor();
+  if(remaining.length>0 && currentView==='order'){ currentOrderId=remaining[0].id; renderOrderView(); }
+  else { switchView('floor'); }
+  openReceiptFromRecord(record);
+  showToast('Payment confirmed — table freed once fully paid');
+});
+
+/* ===================== RECEIPT ===================== */
+let receiptData=null;
+function openReceiptFromRecord(record){ receiptData=record; document.getElementById('receiptBody').innerHTML=receiptHtml(record); openModal('modalReceipt'); }
+function receiptHtml(r){
+  const pmLine = r.paymentMethod==='split'
+    ? r.paymentDetail.parts.map(p=>`<div class="meta-row"><span>${p.method}</span><span>${fmt(p.amount)}</span></div>`).join('')
+    : r.paymentMethod==='cash'
+      ? `<div class="meta-row"><span>Amount received</span><span>${fmt(r.paymentDetail.tendered)}</span></div><div class="meta-row"><span>Change</span><span>${fmt(r.paymentDetail.change)}</span></div>`
+      : `<div class="meta-row"><span>Reference</span><span>${escapeHtml(r.paymentDetail.reference||'—')}</span></div>`;
+  return `
+    <div class="receipt-head">
+      <div class="rname">${escapeHtml(settings.restaurantName)}</div>
+      <div class="raddr">${escapeHtml(settings.address)}</div>
+      <div class="rtax">Tax ID: ${escapeHtml(settings.taxId)}</div>
+    </div>
+    <div class="dashed"></div>
+    <div class="meta-row"><span>Receipt ${r.receiptNo}${r.voided?' <b>(VOIDED)</b>':''}</span><span>${new Date(r.datetime).toLocaleString()}</span></div>
+    <div class="meta-row"><span>Table T${r.tableNum}</span><span>Waiter: ${escapeHtml(r.waiter||'—')}</span></div>
+    <div class="meta-row"><span>Processed by</span><span>${escapeHtml(r.cashierUser)} (${r.cashierRole})</span></div>
+    <div class="dashed"></div>
+    ${r.items.map(it=>`<div class="receipt-item"><div class="r1"><span>${it.qty} x ${escapeHtml(it.name)}</span><span>${fmt(it.price*it.qty)}</span></div>${it.note?`<div class="r2">${escapeHtml(it.note)}</div>`:''}</div>`).join('')}
+    <div class="dashed"></div>
+    <div class="meta-row"><span>Subtotal</span><span>${fmt(r.subtotal)}</span></div>
+    ${r.discountAmount>0?`<div class="meta-row"><span>Discount (${r.discount.type==='percent'?r.discount.value+'%':'flat'})</span><span>-${fmt(r.discountAmount)}</span></div>`:''}
+    ${r.serviceCharge>0?`<div class="meta-row"><span>Service charge</span><span>${fmt(r.serviceCharge)}</span></div>`:''}
+    <div class="meta-row"><span>Tax</span><span>${fmt(r.tax)}</span></div>
+    ${r.tip>0?`<div class="meta-row"><span>Tip</span><span>${fmt(r.tip)}</span></div>`:''}
+    <div class="dashed"></div>
+    <div class="trow grand"><span>Total</span><span>${fmt(r.grandTotal)}</span></div>
+    <div class="meta-row" style="margin-top:8px;"><span>Payment</span><span style="text-transform:uppercase;">${r.paymentMethod}</span></div>
+    ${pmLine}
+  `;
+}
+document.getElementById('btnPrintReceipt').addEventListener('click', ()=>{ document.getElementById('printArea').innerHTML=receiptHtml(receiptData); window.print(); });
+
+/* ===================== HISTORY ===================== */
+function renderHistory(){
+  const isOwnOnly = currentUser.role==='waiter';
+  const filters = document.getElementById('histFilters');
+  filters.innerHTML = `
+    <select class="filter-select" id="fPay"><option value="all">All payment methods</option><option value="cash">Cash</option><option value="card">Card</option><option value="upi">UPI</option><option value="split">Split</option></select>
+    <input class="filter-input" id="fTable" type="text" placeholder="Table #">
+    ${!isOwnOnly?`<select class="filter-select" id="fWaiter"><option value="all">All waiters</option>${users.filter(u=>u.role==='waiter').map(u=>`<option value="${escapeHtml(u.name)}">${escapeHtml(u.name)}</option>`).join('')}</select>`:''}
+    ${!isOwnOnly?`<select class="filter-select" id="fCashier"><option value="all">All processed-by</option>${users.map(u=>`<option value="${escapeHtml(u.name)}">${escapeHtml(u.name)}</option>`).join('')}</select>`:''}
+    <input class="filter-input" id="fDate" type="date">
+  `;
+  ['fPay','fTable','fWaiter','fCashier','fDate'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('input', renderHistoryTable); });
+  renderHistoryTable();
+}
+function renderHistoryTable(){
+  const wrap=document.getElementById('histTableWrap');
+  const isOwnOnly=currentUser.role==='waiter';
+  let rows=history.slice().sort((a,b)=>b.datetime-a.datetime);
+  if(isOwnOnly) rows=rows.filter(r=>r.waiter===currentUser.name || r.cashierUser===currentUser.name);
+  const fPay=(document.getElementById('fPay')||{}).value;
+  const fTable=(document.getElementById('fTable')||{}).value;
+  const fWaiter=(document.getElementById('fWaiter')||{}).value;
+  const fCashier=(document.getElementById('fCashier')||{}).value;
+  const fDate=(document.getElementById('fDate')||{}).value;
+  if(fPay && fPay!=='all') rows=rows.filter(r=>r.paymentMethod===fPay);
+  if(fTable) rows=rows.filter(r=>String(r.tableNum).includes(fTable));
+  if(fWaiter && fWaiter!=='all') rows=rows.filter(r=>r.waiter===fWaiter);
+  if(fCashier && fCashier!=='all') rows=rows.filter(r=>r.cashierUser===fCashier);
+  if(fDate) rows=rows.filter(r=>new Date(r.datetime).toISOString().slice(0,10)===fDate);
+  if(rows.length===0){ wrap.innerHTML='<div class="empty-note">No orders match.</div>'; return; }
+  wrap.innerHTML=`<table class="data-table"><thead><tr><th>Receipt</th><th>Table</th><th>Waiter</th><th>Processed By</th><th>Total</th><th>Time</th><th>Payment</th><th></th></tr></thead><tbody>
+    ${rows.map(r=>`<tr>
+      <td>${r.receiptNo}${r.voided?'<span class="badge-voided">Voided</span>':''}</td>
+      <td>T${r.tableNum}</td><td>${escapeHtml(r.waiter||'—')}</td><td>${escapeHtml(r.cashierUser)}</td>
+      <td>${fmt(r.grandTotal)}</td><td>${new Date(r.datetime).toLocaleString()}</td>
+      <td><span class="pm-badge pm-${r.paymentMethod}">${r.paymentMethod}</span></td>
+      <td>
+        ${(can('reprintAny')||(can('reprintOwn')&&(r.waiter===currentUser.name||r.cashierUser===currentUser.name)))?`<button class="small-btn" data-reprint="${r.id}">Reprint</button>`:''}
+        ${can('reopenTransaction')&&!r.voided?`<button class="small-btn danger" data-reopen="${r.id}">Reopen</button>`:''}
+      </td>
+    </tr>`).join('')}
+  </tbody></table>`;
+  wrap.querySelectorAll('[data-reprint]').forEach(b=>b.onclick=()=>openReceiptFromRecord(history.find(h=>h.id===b.dataset.reprint)));
+  wrap.querySelectorAll('[data-reopen]').forEach(b=>b.onclick=()=>confirmReopen(b.dataset.reopen));
+}
+function confirmReopen(recordId){
+  const record=history.find(h=>h.id===recordId);
+  openGeneric('Reopen Transaction (Manager Authorization)', `
+    <p class="hint">This will void receipt ${record.receiptNo} and recreate its items as a new active order on Table ${record.tableNum}. The original record is kept for audit, marked VOIDED.</p>
+    <div class="form-field full" style="margin-top:10px;"><label>Manager PIN</label><input type="password" id="reopenPin" maxlength="4" placeholder="••••"></div>
+    <div class="warn-text" id="reopenErr"></div>
+  `, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Authorize & Reopen', variant:'btn-amber', handler:()=>{
+      const pin=document.getElementById('reopenPin').value;
+      const manager = users.find(u=>u.role==='manager' && u.pin===pin);
+      if(!manager){ document.getElementById('reopenErr').textContent='Invalid manager PIN.'; return; }
+      doReopen(record, manager);
+      closeGeneric();
+    }}
+  ]);
+}
+function doReopen(record, manager){
+  record.voided=true; record.voidedBy=manager.name; record.voidedAt=Date.now();
+  audit('Order reopened (voided original)', record.receiptNo, 'completed', 'voided — authorized by '+manager.name);
+  let t = tables.find(t2=>t2.num===record.tableNum);
+  if(!t){ showToast('Original table no longer exists.'); persistAll(); renderHistory(); return; }
+  const order={ id:uid('o'), tableId:t.id, waiterId:t.waiterId||null, waiterName:record.waiter||'',
+    items:record.items.map(i=>({id:uid('li'), itemId:'', name:i.name, price:i.price, qty:i.qty, note:i.note})),
+    discount:{...record.discount}, serviceChargeEnabled:true, tip:0, createdAt:Date.now() };
+  activeOrders.push(order);
+  persistAll(); renderFloor(); renderHistory();
+  showToast('Transaction reopened as a new active order on T'+t.num);
+}
+
+/* ===================== CASH & SHIFTS ===================== */
+function renderCash(){
+  const body=document.getElementById('cashBody');
+  if(currentUser.role==='waiter'){ body.innerHTML=waiterCashHtml(currentUser); wireWaiterCash(currentUser); return; }
+  // cashier & manager both get the operating cash-desk view, manager also sees an overview
+  let html = cashierCashHtml(currentUser);
+  if(currentUser.role==='manager') html += managerCashOverviewHtml();
+  body.innerHTML = html;
+  wireCashierCash(currentUser);
+  if(currentUser.role==='manager') wireManagerOverview();
+}
+function waiterCashHtml(u){
+  const shift=getOpenWaiterShift(u.id);
+  const lastClosed = waiterShifts.filter(s=>s.waiterId===u.id && s.status==='closed').sort((a,b)=>b.closedAt-a.closedAt)[0];
+  if(!shift){
+    return `<div class="shift-card">
+      <div class="section-title" style="margin-top:0;">Your Shift</div>
+      <p class="hint">No shift is currently open. You must open a shift before you can take payments.</p>
+      <button class="btn btn-amber" id="btnOpenWShift" style="margin-top:12px; width:220px;">Open Shift</button>
+      ${lastClosed?`<div style="margin-top:20px;">
+        <div class="section-title">Last Closed Shift</div>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="l">Sales Total</div><div class="v">${fmt(lastClosed.salesTotal)}</div></div>
+          <div class="stat-box"><div class="l">Expected Cash</div><div class="v">${fmt(lastClosed.expected)}</div></div>
+          <div class="stat-box"><div class="l">Actual Counted</div><div class="v">${fmt(lastClosed.actualCashCounted)}</div></div>
+          <div class="stat-box ${lastClosed.shortage>0?'warn':'good'}"><div class="l">Shortage / Overage</div><div class="v">${lastClosed.shortage>0?'-'+fmt(lastClosed.shortage):'+'+fmt(lastClosed.overage)}</div></div>
+        </div>
+      </div>`:''}
+    </div>`;
+  }
+  const cashInHand = waiterCashInHand(shift);
+  const myHandovers = handoversForShift(shift.id).slice().sort((a,b)=>b.requestedAt-a.requestedAt);
+  return `<div class="shift-card">
+    <div class="section-title" style="margin-top:0;">Your Shift — opened ${new Date(shift.openedAt).toLocaleString()}</div>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="l">Opening Cash</div><div class="v">${fmt(shift.openingCash)}</div></div>
+      <div class="stat-box"><div class="l">Cash Collected</div><div class="v">${fmt(shift.cashCollected)}</div></div>
+      <div class="stat-box"><div class="l">Non-Cash Collected</div><div class="v">${fmt(shift.nonCashCollected)}</div></div>
+      <div class="stat-box amber"><div class="l">Cash Currently Held</div><div class="v">${fmt(cashInHand)}</div></div>
+    </div>
+    <div class="btn-row" style="margin-top:6px;">
+      <button class="btn btn-outline-dark" id="btnHandover" ${cashInHand<=0?'disabled':''}>Record Handover to Cashier</button>
+      <button class="btn btn-outline" id="btnCloseWShift">Close Shift</button>
+    </div>
+    <div class="section-title">Handovers This Shift</div>
+    ${myHandovers.length===0?'<p class="hint">None yet.</p>':`<table class="data-table"><thead><tr><th>Amount</th><th>Status</th><th>Requested</th><th>Confirmed By</th><th></th></tr></thead><tbody>
+      ${myHandovers.map(h=>`<tr><td>${fmt(h.amount)}</td><td>${h.status}</td><td>${new Date(h.requestedAt).toLocaleTimeString()}</td><td>${h.confirmedBy?escapeHtml(h.confirmedBy):'—'}</td>
+      <td>${h.status==='pending'?`<button class="small-btn danger" data-cancel-ho="${h.id}">Cancel</button>`:''}</td></tr>`).join('')}
+    </tbody></table>`}
+  </div>`;
+}
+function wireWaiterCash(u){
+  const shift=getOpenWaiterShift(u.id);
+  const openBtn=document.getElementById('btnOpenWShift');
+  if(openBtn) openBtn.onclick=()=>openWaiterShiftModal(u);
+  if(!shift) return;
+  const hoBtn=document.getElementById('btnHandover');
+  if(hoBtn) hoBtn.onclick=()=>openHandoverModal(u, shift);
+  const closeBtn=document.getElementById('btnCloseWShift');
+  if(closeBtn) closeBtn.onclick=()=>closeWaiterShiftModal(u, shift);
+  document.querySelectorAll('[data-cancel-ho]').forEach(b=>b.onclick=()=>{
+    const h=handovers.find(x=>x.id===b.dataset.cancelHo);
+    h.status='cancelled'; audit('Cash handover cancelled', h.id, 'pending', 'cancelled');
+    persistAll(); renderCash();
+  });
+}
+function openWaiterShiftModal(u){
+  if(!requireOrToast('openWaiterShift')) return;
+  openGeneric('Open Shift', `<div class="form-field full"><label>Opening Cash</label><input type="number" id="openingCash" min="0" step="0.5" value="0"></div>`, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Open Shift', variant:'btn-amber', handler:()=>{
+      const opening=Number(document.getElementById('openingCash').value)||0;
+      const shift={id:uid('ws'), waiterId:u.id, waiterName:u.name, openedAt:Date.now(), closedAt:null, openingCash:opening, cashCollected:0, nonCashCollected:0, salesTotal:0, status:'open'};
+      waiterShifts.push(shift);
+      audit('Waiter shift opened', shift.id, '', 'opening cash '+fmt(opening));
+      persistAll(); closeGeneric(); renderCash(); showToast('Shift opened');
+    }}
+  ]);
+}
+function openHandoverModal(u, shift){
+  if(!requireOrToast('recordHandover')) return;
+  const max=waiterCashInHand(shift);
+  openGeneric('Record Cash Handover', `
+    <p class="hint">Cash currently held: ${fmt(max)}</p>
+    <div class="form-field full" style="margin-top:10px;"><label>Amount to Hand Over</label><input type="number" id="hoAmount" min="0" max="${max}" step="0.5" value="${max.toFixed(2)}"></div>
+    <div class="warn-text" id="hoErr"></div>
+  `, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Submit', variant:'btn-amber', handler:()=>{
+      const amt=Number(document.getElementById('hoAmount').value)||0;
+      if(amt<=0 || amt>max+0.001){ document.getElementById('hoErr').textContent='Enter an amount up to '+fmt(max); return; }
+      const h={id:uid('ho'), waiterShiftId:shift.id, waiterId:u.id, waiterName:u.name, amount:amt, requestedAt:Date.now(), status:'pending', confirmedBy:null, confirmedAt:null, referenceNo:null, actualCounted:null, difference:null};
+      handovers.push(h);
+      audit('Cash handover recorded', h.id, '', fmt(amt)+' by '+u.name);
+      persistAll(); closeGeneric(); renderCash(); showToast('Handover submitted, awaiting cashier confirmation');
+    }}
+  ]);
+}
+function closeWaiterShiftModal(u, shift){
+  if(!requireOrToast('closeWaiterShift')) return;
+  const expected = waiterCashInHand(shift);
+  openGeneric('Close Shift', `
+    <p class="hint">Expected cash in hand: ${fmt(expected)}</p>
+    <div class="form-field full" style="margin-top:10px;"><label>Actual Cash Counted</label><input type="number" id="actualCash" min="0" step="0.5" value="${expected.toFixed(2)}"></div>
+  `, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Close Shift', variant:'btn-amber', handler:()=>{
+      const actual=Number(document.getElementById('actualCash').value)||0;
+      const diff=actual-expected;
+      shift.status='closed'; shift.closedAt=Date.now(); shift.expected=expected; shift.actualCashCounted=actual;
+      shift.shortage=diff<0?-diff:0; shift.overage=diff>0?diff:0;
+      audit('Waiter shift closed', shift.id, 'expected '+fmt(expected), 'actual '+fmt(actual));
+      persistAll(); closeGeneric(); renderCash(); showToast('Shift closed');
+    }}
+  ]);
+}
+
+function cashierCashHtml(u){
+  const shift=getOpenCashierShift(u.id);
+  const pending=handovers.filter(h=>h.status==='pending');
+  const confirmedToday=handovers.filter(h=>h.status==='confirmed' && new Date(h.confirmedAt).toDateString()===new Date().toDateString());
+  const lastClosed=cashierShifts.filter(s=>s.cashierId===u.id && s.status==='closed').sort((a,b)=>b.closedAt-a.closedAt)[0];
+  let html = `<div class="shift-card"><div class="section-title" style="margin-top:0;">Your Cashier Shift</div>`;
+  if(!shift){
+    html += `<p class="hint">No shift is currently open.</p><button class="btn btn-amber" id="btnOpenCShift" style="margin-top:12px; width:220px;">Open Shift</button>`;
+    if(lastClosed){
+      html += `<div style="margin-top:20px;"><div class="section-title">Last Closed Shift</div><div class="stat-grid">
+        <div class="stat-box"><div class="l">Sales Total</div><div class="v">${fmt(lastClosed.salesTotal)}</div></div>
+        <div class="stat-box"><div class="l">Expected Cash</div><div class="v">${fmt(lastClosed.expected)}</div></div>
+        <div class="stat-box"><div class="l">Actual Counted</div><div class="v">${fmt(lastClosed.actualCashCounted)}</div></div>
+        <div class="stat-box ${lastClosed.shortage>0?'warn':'good'}"><div class="l">Shortage / Overage</div><div class="v">${lastClosed.shortage>0?'-'+fmt(lastClosed.shortage):'+'+fmt(lastClosed.overage)}</div></div>
+      </div></div>`;
+    }
+  } else {
+    const otherIn=shift.otherMovements.filter(m=>m.type==='in').reduce((s,m)=>s+m.amount,0);
+    const otherOut=shift.otherMovements.filter(m=>m.type==='out').reduce((s,m)=>s+m.amount,0);
+    const expected = shift.openingCash + shift.cashSalesDirect + shift.handoversReceived + otherIn - otherOut;
+    html += `<div class="stat-grid">
+      <div class="stat-box"><div class="l">Opening Cash</div><div class="v">${fmt(shift.openingCash)}</div></div>
+      <div class="stat-box"><div class="l">Direct Cash Sales</div><div class="v">${fmt(shift.cashSalesDirect)}</div></div>
+      <div class="stat-box"><div class="l">Handovers Received</div><div class="v">${fmt(shift.handoversReceived)}</div></div>
+      <div class="stat-box amber"><div class="l">Expected Cash Now</div><div class="v">${fmt(expected)}</div></div>
+    </div>
+    <div class="btn-row" style="margin-top:6px;"><button class="btn btn-outline-dark" id="btnAddMovement">Record Cash Movement</button><button class="btn btn-outline" id="btnCloseCShift">Close Shift</button></div>
+    ${shift.otherMovements.length>0?`<div class="section-title">Other Cash Movements</div><table class="data-table"><thead><tr><th>Type</th><th>Amount</th><th>Note</th><th>Time</th></tr></thead><tbody>
+      ${shift.otherMovements.map(m=>`<tr><td>${m.type}</td><td>${fmt(m.amount)}</td><td>${escapeHtml(m.note)}</td><td>${new Date(m.at).toLocaleTimeString()}</td></tr>`).join('')}</tbody></table>`:''}`;
+  }
+  html += `<div class="section-title">Pending Waiter Handovers</div>`;
+  html += pending.length===0?'<p class="hint">None pending.</p>':`<table class="data-table"><thead><tr><th>Waiter</th><th>Amount</th><th>Requested</th><th></th></tr></thead><tbody>
+    ${pending.map(h=>`<tr><td>${escapeHtml(h.waiterName)}</td><td>${fmt(h.amount)}</td><td>${new Date(h.requestedAt).toLocaleString()}</td><td><button class="small-btn" data-confirm-ho="${h.id}">Confirm</button></td></tr>`).join('')}
+  </tbody></table>`;
+  if(confirmedToday.length>0){
+    html += `<div class="section-title">Confirmed Today</div><table class="data-table"><thead><tr><th>Waiter</th><th>Expected</th><th>Actual</th><th>Diff</th><th>Ref</th></tr></thead><tbody>
+    ${confirmedToday.map(h=>`<tr><td>${escapeHtml(h.waiterName)}</td><td>${fmt(h.amount)}</td><td>${fmt(h.actualCounted)}</td><td>${fmt(h.difference)}</td><td>${h.referenceNo}</td></tr>`).join('')}</tbody></table>`;
+  }
+  html += `</div>`;
+  return html;
+}
+function wireCashierCash(u){
+  const shift=getOpenCashierShift(u.id);
+  const openBtn=document.getElementById('btnOpenCShift');
+  if(openBtn) openBtn.onclick=()=>openCashierShiftModal(u);
+  if(shift){
+    const addM=document.getElementById('btnAddMovement');
+    if(addM) addM.onclick=()=>openMovementModal(shift);
+    const closeBtn=document.getElementById('btnCloseCShift');
+    if(closeBtn) closeBtn.onclick=()=>closeCashierShiftModal(u, shift);
+  }
+  document.querySelectorAll('[data-confirm-ho]').forEach(b=>b.onclick=()=>openConfirmHandoverModal(handovers.find(h=>h.id===b.dataset.confirmHo), u));
+}
+function openCashierShiftModal(u){
+  if(!requireOrToast('openCashierShift')) return;
+  openGeneric('Open Cashier Shift', `<div class="form-field full"><label>Opening Cash</label><input type="number" id="openingCashC" min="0" step="0.5" value="0"></div>`, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Open Shift', variant:'btn-amber', handler:()=>{
+      const opening=Number(document.getElementById('openingCashC').value)||0;
+      const shift={id:uid('cs'), cashierId:u.id, cashierName:u.name, openedAt:Date.now(), closedAt:null, openingCash:opening, cashSalesDirect:0, nonCashSalesDirect:0, salesTotal:0, handoversReceived:0, otherMovements:[], status:'open'};
+      cashierShifts.push(shift);
+      audit('Cashier shift opened', shift.id, '', 'opening cash '+fmt(opening));
+      persistAll(); closeGeneric(); renderCash(); showToast('Shift opened');
+    }}
+  ]);
+}
+function openMovementModal(shift){
+  if(!requireOrToast('recordOtherCashMovement')) return;
+  openGeneric('Record Cash Movement', `
+    <div class="form-grid">
+      <div class="form-field"><label>Type</label><select id="mvType"><option value="in">Cash In</option><option value="out">Cash Out</option></select></div>
+      <div class="form-field"><label>Amount</label><input type="number" id="mvAmount" min="0" step="0.5" value="0"></div>
+      <div class="form-field full"><label>Note</label><input type="text" id="mvNote" placeholder="e.g. petty cash purchase"></div>
+    </div>`, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Record', variant:'btn-amber', handler:()=>{
+      const type=document.getElementById('mvType').value, amount=Number(document.getElementById('mvAmount').value)||0, note=document.getElementById('mvNote').value;
+      if(amount<=0) return;
+      shift.otherMovements.push({type, amount, note, at:Date.now()});
+      audit('Cash movement recorded', shift.id, '', type+' '+fmt(amount)+' — '+note);
+      persistAll(); closeGeneric(); renderCash();
+    }}
+  ]);
+}
+function closeCashierShiftModal(u, shift){
+  if(!requireOrToast('closeCashierShift')) return;
+  const otherIn=shift.otherMovements.filter(m=>m.type==='in').reduce((s,m)=>s+m.amount,0);
+  const otherOut=shift.otherMovements.filter(m=>m.type==='out').reduce((s,m)=>s+m.amount,0);
+  const expected = shift.openingCash + shift.cashSalesDirect + shift.handoversReceived + otherIn - otherOut;
+  openGeneric('Close Cashier Shift', `
+    <p class="hint">Expected cash: ${fmt(expected)}</p>
+    <div class="form-field full" style="margin-top:10px;"><label>Actual Cash Counted</label><input type="number" id="actualCashC" min="0" step="0.5" value="${expected.toFixed(2)}"></div>`, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Close Shift', variant:'btn-amber', handler:()=>{
+      const actual=Number(document.getElementById('actualCashC').value)||0;
+      const diff=actual-expected;
+      shift.status='closed'; shift.closedAt=Date.now(); shift.expected=expected; shift.actualCashCounted=actual;
+      shift.shortage=diff<0?-diff:0; shift.overage=diff>0?diff:0;
+      audit('Cashier shift closed', shift.id, 'expected '+fmt(expected), 'actual '+fmt(actual));
+      persistAll(); closeGeneric(); renderCash(); showToast('Shift closed');
+    }}
+  ]);
+}
+function openConfirmHandoverModal(h, u){
+  if(!requireOrToast('confirmHandover')) return;
+  openGeneric('Confirm Cash Handover', `
+    <p class="hint">${escapeHtml(h.waiterName)} declared ${fmt(h.amount)}.</p>
+    <div class="form-field full" style="margin-top:10px;"><label>Actual Amount Counted</label><input type="number" id="hoActual" min="0" step="0.5" value="${h.amount.toFixed(2)}"></div>`, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Confirm', variant:'btn-amber', handler:()=>{
+      const actual=Number(document.getElementById('hoActual').value)||0;
+      h.status='confirmed'; h.confirmedBy=u.name; h.confirmedAt=Date.now(); h.actualCounted=actual; h.difference=Math.round((actual-h.amount)*100)/100;
+      h.referenceNo='HO-'+String(handovers.filter(x=>x.status==='confirmed').length+1).padStart(4,'0');
+      const shift=getOpenCashierShift(u.id);
+      if(shift) shift.handoversReceived += actual;
+      audit('Cash handover confirmed', h.referenceNo, 'expected '+fmt(h.amount), 'actual '+fmt(actual));
+      persistAll(); closeGeneric(); renderCash(); showToast('Handover confirmed');
+    }}
+  ]);
+}
+function managerCashOverviewHtml(){
+  let html = `<div class="section-title">All Waiter Shifts</div>`;
+  const wShifts = waiterShifts.slice().sort((a,b)=>b.openedAt-a.openedAt);
+  html += wShifts.length===0?'<p class="hint">No waiter shifts yet.</p>':`<table class="data-table"><thead><tr><th>Waiter</th><th>Status</th><th>Cash Held / Collected</th><th>Opened</th><th>Closed</th></tr></thead><tbody>
+    ${wShifts.map(s=>`<tr><td>${escapeHtml(s.waiterName)}</td><td>${s.status}</td><td>${s.status==='open'?fmt(waiterCashInHand(s)):fmt(s.actualCashCounted)}</td><td>${new Date(s.openedAt).toLocaleString()}</td><td>${s.closedAt?new Date(s.closedAt).toLocaleString():'—'}</td></tr>`).join('')}
+  </tbody></table>`;
+  html += `<div class="section-title">All Cashier Shifts</div>`;
+  const cShifts = cashierShifts.slice().sort((a,b)=>b.openedAt-a.openedAt);
+  html += cShifts.length===0?'<p class="hint">No cashier shifts yet.</p>':`<table class="data-table"><thead><tr><th>Cashier</th><th>Status</th><th>Opened</th><th>Closed</th></tr></thead><tbody>
+    ${cShifts.map(s=>`<tr><td>${escapeHtml(s.cashierName)}</td><td>${s.status}</td><td>${new Date(s.openedAt).toLocaleString()}</td><td>${s.closedAt?new Date(s.closedAt).toLocaleString():'—'}</td></tr>`).join('')}
+  </tbody></table>`;
+  return html;
+}
+function wireManagerOverview(){ /* read-only, no wiring needed */ }
+
+/* ===================== DASHBOARD ===================== */
+function renderDashboard(){
+  document.getElementById('dashTitle').textContent = currentUser.role==='waiter' ? 'My Dashboard' : 'Dashboard';
+  const body=document.getElementById('dashBody');
+  const todayStr=new Date().toDateString();
+  const todays = history.filter(r=>!r.voided && new Date(r.datetime).toDateString()===todayStr);
+  if(currentUser.role==='waiter'){
+    const mine = todays.filter(r=>r.waiter===currentUser.name);
+    const shift=getOpenWaiterShift(currentUser.id);
+    const cashSales=mine.filter(r=>r.paymentMethod==='cash').reduce((s,r)=>s+r.grandTotal,0);
+    const cardSales=mine.filter(r=>r.paymentMethod==='card').reduce((s,r)=>s+r.grandTotal,0);
+    const upiSales=mine.filter(r=>r.paymentMethod==='upi').reduce((s,r)=>s+r.grandTotal,0);
+    const myTables = visibleTables().length;
+    const activeCount = activeOrders.filter(o=>{ const t=tableById(o.tableId); return t && t.waiterId===currentUser.id; }).length;
+    body.innerHTML = `
+      <div class="summary-grid">
+        <div class="shift-card"><div class="section-title" style="margin-top:0;">My Tables</div><div class="v" style="font-family:var(--font-mono); font-size:24px; color:var(--amber);">${myTables}</div></div>
+        <div class="shift-card"><div class="section-title" style="margin-top:0;">Active Orders</div><div class="v" style="font-family:var(--font-mono); font-size:24px; color:var(--amber);">${activeCount}</div></div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="l">Today's Sales</div><div class="v">${fmt(mine.reduce((s,r)=>s+r.grandTotal,0))}</div></div>
+        <div class="stat-box"><div class="l">Cash Sales</div><div class="v">${fmt(cashSales)}</div></div>
+        <div class="stat-box"><div class="l">Card Sales</div><div class="v">${fmt(cardSales)}</div></div>
+        <div class="stat-box"><div class="l">UPI Sales</div><div class="v">${fmt(upiSales)}</div></div>
+      </div>
+      ${shift?`<div class="section-title">Current Shift Cash</div><div class="stat-grid">
+        <div class="stat-box"><div class="l">Cash Collected</div><div class="v">${fmt(shift.cashCollected)}</div></div>
+        <div class="stat-box amber"><div class="l">Cash In Hand</div><div class="v">${fmt(waiterCashInHand(shift))}</div></div>
+        <div class="stat-box"><div class="l">Handed to Cashier</div><div class="v">${fmt(handoversForShift(shift.id).filter(h=>h.status==='confirmed').reduce((s,h)=>s+h.amount,0))}</div></div>
+      </div>`:'<p class="hint">No shift currently open.</p>'}
+    `;
+    return;
+  }
+  const revenue=todays.reduce((s,r)=>s+r.grandTotal,0);
+  const count=todays.length;
+  const avg=count>0?revenue/count:0;
+  const discounts=todays.reduce((s,r)=>s+r.discountAmount,0);
+  const tax=todays.reduce((s,r)=>s+r.tax,0);
+  const sc=todays.reduce((s,r)=>s+r.serviceCharge,0);
+  const tips=todays.reduce((s,r)=>s+r.tip,0);
+  const byMethod={cash:0,card:0,upi:0,split:0};
+  todays.forEach(r=>{ byMethod[r.paymentMethod]=(byMethod[r.paymentMethod]||0)+r.grandTotal; });
+  const maxVal=Math.max(1, ...Object.values(byMethod));
+  const cashWithWaiters = waiterShifts.filter(s=>s.status==='open').reduce((s,sh)=>s+waiterCashInHand(sh),0);
+  const cashWithCashier = cashierShifts.filter(s=>s.status==='open').reduce((s,sh)=>{
+    const otherIn=sh.otherMovements.filter(m=>m.type==='in').reduce((a,m)=>a+m.amount,0);
+    const otherOut=sh.otherMovements.filter(m=>m.type==='out').reduce((a,m)=>a+m.amount,0);
+    return s + sh.openingCash+sh.cashSalesDirect+sh.handoversReceived+otherIn-otherOut;
+  },0);
+  body.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-box"><div class="l">Total Revenue Today</div><div class="v">${fmt(revenue)}</div></div>
+      <div class="stat-box"><div class="l">Orders Today</div><div class="v">${count}</div></div>
+      <div class="stat-box"><div class="l">Average Order Value</div><div class="v">${fmt(avg)}</div></div>
+      <div class="stat-box"><div class="l">Discounts Given</div><div class="v">${fmt(discounts)}</div></div>
+      <div class="stat-box"><div class="l">Tax Collected</div><div class="v">${fmt(tax)}</div></div>
+      <div class="stat-box"><div class="l">Service Charges</div><div class="v">${fmt(sc)}</div></div>
+      <div class="stat-box"><div class="l">Tips</div><div class="v">${fmt(tips)}</div></div>
+      <div class="stat-box amber"><div class="l">Cash With Waiters</div><div class="v">${fmt(cashWithWaiters)}</div></div>
+      <div class="stat-box amber"><div class="l">Cash With Cashier</div><div class="v">${fmt(cashWithCashier)}</div></div>
+      <div class="stat-box amber"><div class="l">Total Cash In System</div><div class="v">${fmt(cashWithWaiters+cashWithCashier)}</div></div>
+    </div>
+    <div class="section-title">Revenue by Payment Method</div>
+    ${Object.entries(byMethod).map(([k,v])=>`<div class="pm-bar-row"><div class="pm-bar-label">${k}</div><div class="pm-bar-track"><div class="pm-bar-fill" style="width:${(v/maxVal*100)}%;"></div></div><div class="pm-bar-val">${fmt(v)}</div></div>`).join('')}
+  `;
+}
+
+/* ===================== AUDIT ===================== */
+function renderAudit(){
+  const body=document.getElementById('auditBody');
+  const rows=auditLog.slice().sort((a,b)=>b.at-a.at).slice(0,300);
+  if(rows.length===0){ body.innerHTML='<div class="empty-note">No audit events yet.</div>'; return; }
+  body.innerHTML = `<table class="data-table"><thead><tr><th>Time</th><th>User</th><th>Role</th><th>Action</th><th>Reference</th><th>Previous</th><th>New</th></tr></thead><tbody>
+    ${rows.map(a=>`<tr><td>${new Date(a.at).toLocaleString()}</td><td>${escapeHtml(a.user)}</td><td>${escapeHtml(a.role)}</td><td>${escapeHtml(a.action)}</td><td>${escapeHtml(a.ref)}</td><td>${escapeHtml(a.prevValue)}</td><td>${escapeHtml(a.newValue)}</td></tr>`).join('')}
+  </tbody></table>`;
+}
+
+/* ===================== SETTINGS ===================== */
+function renderSettings(){
+  const body=document.getElementById('settingsBody');
+  body.innerHTML = `
+    <div class="shift-card">
+      <div class="section-title" style="margin-top:0;">Restaurant Info</div>
+      <div class="form-grid">
+        <div class="form-field full"><label>Restaurant Name</label><input id="sName" value="${escapeHtml(settings.restaurantName)}"></div>
+        <div class="form-field full"><label>Address</label><input id="sAddr" value="${escapeHtml(settings.address)}"></div>
+        <div class="form-field"><label>Tax ID</label><input id="sTaxId" value="${escapeHtml(settings.taxId)}"></div>
+        <div class="form-field"><label>Currency Symbol</label><input id="sCur" value="${escapeHtml(settings.currency)}"></div>
+        <div class="form-field"><label>Tax Rate (%)</label><input id="sTaxRate" type="number" min="0" step="0.5" value="${settings.taxRate}"></div>
+        <div class="form-field"><label>Service Charge Rate (%)</label><input id="sScRate" type="number" min="0" step="0.5" value="${settings.serviceChargeRate}"></div>
+        <div class="form-field"><label>Table Count</label><input id="sTableCount" type="number" min="1" max="60" value="${settings.tableCount}"></div>
+        <div class="form-field check"><input type="checkbox" id="sTip" ${settings.tipEnabled?'checked':''}><label for="sTip">Enable tip field</label></div>
+        <div class="form-field check"><input type="checkbox" id="sSc" ${settings.serviceChargeEnabled?'checked':''}><label for="sSc">Enable service charge</label></div>
+        <div class="form-field check"><input type="checkbox" id="sWaiterDisc" ${settings.waiterCanDiscount?'checked':''}><label for="sWaiterDisc">Waiters may apply discounts</label></div>
+      </div>
+      <button class="btn btn-amber" id="btnSaveSettings" style="margin-top:14px; width:220px;">Save Settings</button>
+    </div>
+
+    <div class="shift-card">
+      <div class="head-row" style="margin-bottom:8px;"><div class="section-title" style="margin:0;">Users</div><button class="btn btn-outline-dark" id="btnAddUser" style="width:auto; padding:8px 14px;">+ Add User</button></div>
+      <table class="data-table"><thead><tr><th>Name</th><th>Role</th><th>PIN</th><th></th></tr></thead><tbody>
+        ${users.map(u=>`<tr><td>${escapeHtml(u.name)}</td><td>${u.role}</td><td>••••</td><td><button class="small-btn" data-edit-user="${u.id}">Edit</button><button class="small-btn danger" data-del-user="${u.id}">Delete</button></td></tr>`).join('')}
+      </tbody></table>
+    </div>
+
+    <div class="shift-card">
+      <div class="head-row" style="margin-bottom:8px;"><div class="section-title" style="margin:0;">Menu</div><button class="btn btn-outline-dark" id="btnAddItem" style="width:auto; padding:8px 14px;">+ Add Item</button></div>
+      <table class="data-table"><thead><tr><th>Photo</th><th>Name</th><th>Category</th><th>Price</th><th>Type</th><th>Available</th><th></th></tr></thead><tbody>
+        ${menu.map(m=>`<tr><td><div class="item-photo" style="width:40px; height:40px;">${m.image?`<img src="${escapeHtml(m.image)}" alt="">`:`<div class="item-photo-placeholder" style="font-size:11px;">${escapeHtml(itemInitials(m.name))}</div>`}</div></td><td>${escapeHtml(m.name)}</td><td>${escapeHtml(m.category)}</td><td>${fmt(m.price)}</td><td>${m.veg?'Veg':'Non-Veg'}</td><td>${m.available?'Yes':'No'}</td>
+          <td><button class="small-btn" data-edit-item="${m.id}">Edit</button><button class="small-btn" data-toggle-item="${m.id}">${m.available?'Mark Unavailable':'Mark Available'}</button><button class="small-btn danger" data-del-item="${m.id}">Delete</button></td></tr>`).join('')}
+      </tbody></table>
+    </div>
+
+    <div class="shift-card">
+      <div class="section-title" style="margin-top:0;">Tables</div>
+      <table class="data-table"><thead><tr><th>Table</th><th>Capacity</th><th>Waiter</th></tr></thead><tbody>
+        ${tables.slice().sort((a,b)=>a.num-b.num).map(t=>`<tr><td>T${t.num}</td><td><input type="number" min="1" data-cap="${t.id}" value="${t.capacity}" style="width:70px; background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.1); color:var(--white); padding:6px; border-radius:4px;"></td><td>${t.waiterId?escapeHtml(userById(t.waiterId).name):'Unassigned'}</td></tr>`).join('')}
+      </tbody></table>
+    </div>
+  `;
+  document.getElementById('btnSaveSettings').onclick=()=>{
+    settings.restaurantName=document.getElementById('sName').value.trim()||settings.restaurantName;
+    settings.address=document.getElementById('sAddr').value;
+    settings.taxId=document.getElementById('sTaxId').value;
+    settings.currency=document.getElementById('sCur').value||'$';
+    settings.taxRate=Number(document.getElementById('sTaxRate').value)||0;
+    settings.serviceChargeRate=Number(document.getElementById('sScRate').value)||0;
+    settings.tipEnabled=document.getElementById('sTip').checked;
+    settings.serviceChargeEnabled=document.getElementById('sSc').checked;
+    settings.waiterCanDiscount=document.getElementById('sWaiterDisc').checked;
+    const newCount=Math.max(1, Math.min(60, Number(document.getElementById('sTableCount').value)||settings.tableCount));
+    if(newCount!==settings.tableCount){
+      const existing=tables;
+      const result=[];
+      for(let i=0;i<newCount;i++){
+        const num=i+1; const prev=existing.find(t=>t.num===num);
+        result.push(prev || {id:uid('t'), num, capacity:TABLE_PATTERN[i%TABLE_PATTERN.length], waiterId:null});
+      }
+      existing.forEach(t=>{ if(t.num>newCount && getTableOrders(t.id).length>0) result.push(t); });
+      tables=result; settings.tableCount=newCount;
+    }
+    document.querySelectorAll('[data-cap]').forEach(inp=>{ const t=tableById(inp.dataset.cap); if(t) t.capacity=Number(inp.value)||t.capacity; });
+    audit('Settings updated','settings','','updated');
+    persistAll(); renderTopbar(); renderFloor(); renderSettings();
+    showToast('Settings saved');
+  };
+  document.getElementById('btnAddUser').onclick=()=>openUserForm(null);
+  document.querySelectorAll('[data-edit-user]').forEach(b=>b.onclick=()=>openUserForm(userById(b.dataset.editUser)));
+  document.querySelectorAll('[data-del-user]').forEach(b=>b.onclick=()=>{
+    const u=userById(b.dataset.delUser);
+    if(u.id===currentUser.id){ showToast('You cannot delete yourself.'); return; }
+    if(u.role==='manager' && users.filter(x=>x.role==='manager').length<=1){ showToast('At least one manager must remain.'); return; }
+    users=users.filter(x=>x.id!==u.id);
+    tables.forEach(t=>{ if(t.waiterId===u.id) t.waiterId=null; });
+    audit('User deleted','user:'+u.id, u.name, '');
+    persistAll(); renderSettings(); showToast('User deleted');
+  });
+  document.getElementById('btnAddItem').onclick=()=>openItemForm(null);
+  document.querySelectorAll('[data-edit-item]').forEach(b=>b.onclick=()=>openItemForm(menu.find(m=>m.id===b.dataset.editItem)));
+  document.querySelectorAll('[data-toggle-item]').forEach(b=>b.onclick=()=>{
+    const m=menu.find(x=>x.id===b.dataset.toggleItem); const prev=m.available; m.available=!m.available;
+    audit('Menu item availability changed', m.name, prev?'available':'unavailable', m.available?'available':'unavailable');
+    persistAll(); renderSettings();
+  });
+  document.querySelectorAll('[data-del-item]').forEach(b=>b.onclick=()=>{
+    const m=menu.find(x=>x.id===b.dataset.delItem);
+    menu=menu.filter(x=>x.id!==m.id);
+    audit('Menu item deleted', m.name, m.name, '');
+    persistAll(); renderSettings();
+  });
+}
+function openUserForm(u){
+  const editing=!!u;
+  const body=`<div class="form-grid">
+    <div class="form-field full"><label>Name</label><input id="ufName" value="${editing?escapeHtml(u.name):''}"></div>
+    <div class="form-field"><label>Role</label><select id="ufRole">
+      <option value="waiter" ${editing&&u.role==='waiter'?'selected':''}>Waiter</option>
+      <option value="cashier" ${editing&&u.role==='cashier'?'selected':''}>Cashier</option>
+      <option value="manager" ${editing&&u.role==='manager'?'selected':''}>Manager</option>
+    </select></div>
+    <div class="form-field"><label>4-digit PIN</label><input id="ufPin" maxlength="4" value="${editing?u.pin:''}"></div>
+  </div>`;
+  openGeneric(editing?'Edit User':'Add User', body, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Save', variant:'btn-amber', handler:()=>{
+      const name=document.getElementById('ufName').value.trim();
+      const role=document.getElementById('ufRole').value;
+      const pin=document.getElementById('ufPin').value.trim();
+      if(!name || !/^\d{4}$/.test(pin)){ showToast('Enter a name and a 4-digit PIN.'); return; }
+      if(editing){ const prev=`${u.name}/${u.role}`; u.name=name; u.role=role; u.pin=pin; audit('User updated','user:'+u.id, prev, `${name}/${role}`); }
+      else { const nu={id:uid('u'), name, role, pin}; users.push(nu); audit('User created','user:'+nu.id,'',`${name}/${role}`); }
+      persistAll(); closeGeneric(); renderSettings(); showToast('User saved');
+    }}
+  ]);
+}
+function openItemForm(m){
+  const editing=!!m;
+  const categories=[...new Set(menu.map(x=>x.category))];
+  let pendingImage = editing ? (m.image || null) : null;
+  const body=`<div class="form-grid">
+    <div class="form-field full" style="flex-direction:row; align-items:center; gap:14px;">
+      <div class="item-photo" id="ifPreviewBox" style="width:84px; height:84px; flex-shrink:0;">${pendingImage?`<img id="ifPreviewImg" src="${escapeHtml(pendingImage)}" alt="">`:`<div class="item-photo-placeholder" id="ifPreviewImg">${editing?escapeHtml(itemInitials(m.name)):'?'}</div>`}</div>
+      <div style="flex:1;">
+        <label style="font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--slate-dim); display:block; margin-bottom:6px;">Photo</label>
+        <input type="file" id="ifImageFile" accept="image/*" style="font-size:12px; color:var(--slate);">
+        <div class="hint" id="ifImageErr"></div>
+      </div>
+    </div>
+    <div class="form-field full"><label>Or Image URL</label><input id="ifImageUrl" placeholder="https://…" value="${editing && pendingImage && pendingImage.indexOf('data:')!==0 ? escapeHtml(pendingImage) : ''}"></div>
+    <div class="form-field full"><label>Name</label><input id="ifName" value="${editing?escapeHtml(m.name):''}"></div>
+    <div class="form-field full"><label>Description</label><input id="ifDesc" value="${editing?escapeHtml(m.description):''}"></div>
+    <div class="form-field"><label>Category</label><input id="ifCat" list="catList" value="${editing?escapeHtml(m.category):''}"><datalist id="catList">${categories.map(c=>`<option value="${escapeHtml(c)}">`).join('')}</datalist></div>
+    <div class="form-field"><label>Price</label><input id="ifPrice" type="number" min="0" step="0.5" value="${editing?m.price:0}"></div>
+    <div class="form-field check"><input type="checkbox" id="ifVeg" ${editing&&m.veg?'checked':''}><label for="ifVeg">Vegetarian</label></div>
+    <div class="form-field check"><input type="checkbox" id="ifAvail" ${(!editing||m.available)?'checked':''}><label for="ifAvail">Available</label></div>
+  </div>`;
+  openGeneric(editing?'Edit Menu Item':'Add Menu Item', body, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Save', variant:'btn-amber', handler:()=>{
+      const name=document.getElementById('ifName').value.trim();
+      const description=document.getElementById('ifDesc').value.trim();
+      const category=document.getElementById('ifCat').value.trim()||'Misc';
+      const price=Number(document.getElementById('ifPrice').value)||0;
+      const veg=document.getElementById('ifVeg').checked;
+      const available=document.getElementById('ifAvail').checked;
+      const urlVal=document.getElementById('ifImageUrl').value.trim();
+      const image = pendingImage || (urlVal || null);
+      if(!name){ showToast('Item name is required.'); return; }
+      if(editing){ Object.assign(m, {name,description,category,price,veg,available,image}); audit('Menu item updated', name, '', 'edited'); }
+      else { menu.push({id:uid('m'), name, description, category, price, veg, available, image}); audit('Menu item created', name, '', 'created'); }
+      persistAll(); closeGeneric(); renderSettings(); showToast('Menu item saved');
+    }}
+  ]);
+  const fileInput=document.getElementById('ifImageFile');
+  const urlInput=document.getElementById('ifImageUrl');
+  function refreshPreview(src, placeholderText){
+    const box=document.getElementById('ifPreviewBox');
+    box.innerHTML = src ? `<img id="ifPreviewImg" src="${src}" alt="">` : `<div class="item-photo-placeholder" id="ifPreviewImg">${escapeHtml(placeholderText||'?')}</div>`;
+  }
+  fileInput.addEventListener('change', ()=>{
+    const file=fileInput.files && fileInput.files[0];
+    if(!file) return;
+    document.getElementById('ifImageErr').textContent='Processing image…';
+    fileToCompressedDataUrl(file, 480, 0.72).then(dataUrl=>{
+      pendingImage = dataUrl;
+      urlInput.value='';
+      refreshPreview(dataUrl);
+      document.getElementById('ifImageErr').textContent='';
+    }).catch(()=>{
+      document.getElementById('ifImageErr').textContent='Could not read that image file.';
+    });
+  });
+  urlInput.addEventListener('input', ()=>{
+    if(urlInput.value.trim()){ pendingImage=null; fileInput.value=''; refreshPreview(urlInput.value.trim()); }
+    else { refreshPreview(null, document.getElementById('ifName').value ? itemInitials(document.getElementById('ifName').value) : '?'); }
+  });
+}
+
+/* ===================== GENERIC MODAL ===================== */
+function openGeneric(title, bodyHtml, buttons){
+  document.getElementById('genericTitle').textContent=title;
+  document.getElementById('genericBody').innerHTML=bodyHtml;
+  const foot=document.getElementById('genericFoot');
+  foot.innerHTML='';
+  buttons.forEach(b=>{
+    const btn=document.createElement('button');
+    btn.className='btn '+b.variant; btn.style.flex='1'; btn.textContent=b.label;
+    btn.addEventListener('click', b.handler);
+    foot.appendChild(btn);
+  });
+  document.getElementById('genericClose').onclick=closeGeneric;
+  openModal('modalGeneric');
+}
+function closeGeneric(){ closeModal('modalGeneric'); }
+
+/* ===================== MODAL HELPERS ===================== */
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click', ()=>closeModal(b.dataset.close)));
+document.querySelectorAll('.modal-overlay').forEach(ov=>ov.addEventListener('click', (e)=>{ if(e.target===ov) ov.classList.remove('open'); }));
+
+/* ===================== INIT ===================== */
+renderUserGrid();
+updateLoginClock();
+if(currentUser){ enterApp(); }
+})();
+</script>
+</body>
+</html>
