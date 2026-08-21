@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Asmara &amp; Addis — POS</title>
 <style>
+<link rel="manifest" href="manifest.json">
 :root{
   --charcoal:#171614; --charcoal-2:#201E1B; --charcoal-3:#2B2824; --charcoal-4:#38342E;
   --amber:#D9A441; --amber-bright:#F0C267; --sage:#4A8A63; --rust:#C25439; --plum:#9C7BB0;
@@ -554,6 +555,15 @@ let handovers = load('posv2_handovers', []);
 let auditLog = load('posv2_audit', []);
 let session = load('posv2_session', null);
 
+// migration: older saved data may have cash movements without stable ids
+(function migrateMovementIds(){
+  let changed=false;
+  cashierShifts.forEach(sh=>{
+    (sh.otherMovements||[]).forEach(m=>{ if(!m.id){ m.id=uid('mv'); changed=true; } if(m.edited===undefined){ m.edited=false; } });
+  });
+  if(changed) save('posv2_cashierShifts', cashierShifts);
+})();
+
 function persistAll(){
   save('posv2_settings', settings); save('posv2_users', users); save('posv2_menu', menu);
   save('posv2_tables', tables); save('posv2_activeOrders', activeOrders); save('posv2_history', history);
@@ -565,7 +575,7 @@ let currentUser = session ? users.find(u=>u.id===session.userId) || null : null;
 
 /* ===================== PERMISSIONS ===================== */
 const PERMS = {
-  manager: new Set(['assignWaiter','reserveTable','configureTables','manageMenu','manageUsers','manageSettings','applyDiscount','processPayment','viewAllOrders','reprintAny','confirmHandover','openCashierShift','closeCashierShift','viewAudit','reopenTransaction','viewAllBalances','recordOtherCashMovement']),
+  manager: new Set(['assignWaiter','reserveTable','configureTables','manageMenu','manageUsers','manageSettings','applyDiscount','processPayment','viewAllOrders','reprintAny','confirmHandover','openCashierShift','closeCashierShift','viewAudit','reopenTransaction','viewAllBalances','recordOtherCashMovement','systemReset']),
   cashier: new Set(['assignWaiter','reserveTable','applyDiscount','processPayment','viewAllOrders','reprintAny','confirmHandover','openCashierShift','closeCashierShift','viewAllBalances','recordOtherCashMovement']),
   waiter: new Set(['processPayment','recordHandover','openWaiterShift','closeWaiterShift','reprintOwn'])
 };
@@ -1102,7 +1112,36 @@ function handoversForShift(shiftId){ return handovers.filter(h=>h.waiterShiftId=
 function waiterCashInHand(shift){
   if(!shift) return 0;
   const given = handoversForShift(shift.id).filter(h=>h.status!=='cancelled').reduce((s,h)=>s+h.amount,0);
-  return Math.max(0, shift.cashCollected - given);
+  return Math.max(0, (shift.openingCash||0) + shift.cashCollected - given);
+}
+function waiterShiftsSorted(waiterId){ return waiterShifts.filter(s=>s.waiterId===waiterId).slice().sort((a,b)=>b.openedAt-a.openedAt); }
+function getWaiterCarryOverCash(waiterId){
+  const shifts = waiterShiftsSorted(waiterId);
+  const lastClosed = shifts.find(s=>s.status==='closed');
+  return lastClosed ? (lastClosed.actualCashCounted||0) : 0;
+}
+function currentWaiterHeldCash(waiterId){
+  const shifts = waiterShiftsSorted(waiterId);
+  if(shifts.length===0) return 0;
+  const latest = shifts[0];
+  return latest.status==='open' ? waiterCashInHand(latest) : (latest.actualCashCounted||0);
+}
+function cashierShiftsSorted(cashierId){ return cashierShifts.filter(s=>s.cashierId===cashierId).slice().sort((a,b)=>b.openedAt-a.openedAt); }
+function getCashierCarryOverCash(cashierId){
+  const shifts = cashierShiftsSorted(cashierId);
+  const lastClosed = shifts.find(s=>s.status==='closed');
+  return lastClosed ? (lastClosed.actualCashCounted||0) : 0;
+}
+function cashierExpectedCash(shift){
+  const otherIn=shift.otherMovements.filter(m=>m.type==='in').reduce((a,m)=>a+m.amount,0);
+  const otherOut=shift.otherMovements.filter(m=>m.type==='out').reduce((a,m)=>a+m.amount,0);
+  return shift.openingCash + shift.cashSalesDirect + shift.handoversReceived + otherIn - otherOut;
+}
+function currentCashierHeldCash(cashierId){
+  const shifts = cashierShiftsSorted(cashierId);
+  if(shifts.length===0) return 0;
+  const latest = shifts[0];
+  return latest.status==='open' ? cashierExpectedCash(latest) : (latest.actualCashCounted||0);
 }
 
 /* ===================== CHECKOUT ===================== */
@@ -1435,13 +1474,22 @@ function wireWaiterCash(u){
 }
 function openWaiterShiftModal(u){
   if(!requireOrToast('openWaiterShift')) return;
-  openGeneric('Open Shift', `<div class="form-field full"><label>Opening Cash</label><input type="number" id="openingCash" min="0" step="0.5" value="0"></div>`, [
+  const carryOver = getWaiterCarryOverCash(u.id);
+  openGeneric('Open Shift', `
+    ${carryOver>0?`<p class="hint">${fmt(carryOver)} was still held (not handed over) at your last shift close. It carries over automatically as your opening cash and cannot be entered lower than this.</p>`:''}
+    <div class="form-field full" style="margin-top:${carryOver>0?'10px':'0'};"><label>Opening Cash${carryOver>0?' (carried over — raise only if you are actually holding more)':''}</label><input type="number" id="openingCash" min="${carryOver}" step="0.5" value="${carryOver.toFixed(2)}"></div>
+    <div class="warn-text" id="openShiftErr"></div>
+  `, [
     {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
     {label:'Open Shift', variant:'btn-amber', handler:()=>{
       const opening=Number(document.getElementById('openingCash').value)||0;
+      if(opening < carryOver - 0.001){
+        document.getElementById('openShiftErr').textContent = `Opening cash cannot be less than ${fmt(carryOver)}, the amount still held from your last shift.`;
+        return;
+      }
       const shift={id:uid('ws'), waiterId:u.id, waiterName:u.name, openedAt:Date.now(), closedAt:null, openingCash:opening, cashCollected:0, nonCashCollected:0, salesTotal:0, status:'open'};
       waiterShifts.push(shift);
-      audit('Waiter shift opened', shift.id, '', 'opening cash '+fmt(opening));
+      audit('Waiter shift opened', shift.id, '', 'opening cash '+fmt(opening)+(carryOver>0?' (carried over from previous shift, floor '+fmt(carryOver)+')':''));
       persistAll(); closeGeneric(); renderCash(); showToast('Shift opened');
     }}
   ]);
@@ -1501,9 +1549,7 @@ function cashierCashHtml(u){
       </div></div>`;
     }
   } else {
-    const otherIn=shift.otherMovements.filter(m=>m.type==='in').reduce((s,m)=>s+m.amount,0);
-    const otherOut=shift.otherMovements.filter(m=>m.type==='out').reduce((s,m)=>s+m.amount,0);
-    const expected = shift.openingCash + shift.cashSalesDirect + shift.handoversReceived + otherIn - otherOut;
+    const expected = cashierExpectedCash(shift);
     html += `<div class="stat-grid">
       <div class="stat-box"><div class="l">Opening Cash</div><div class="v">${fmt(shift.openingCash)}</div></div>
       <div class="stat-box"><div class="l">Direct Cash Sales</div><div class="v">${fmt(shift.cashSalesDirect)}</div></div>
@@ -1511,8 +1557,8 @@ function cashierCashHtml(u){
       <div class="stat-box amber"><div class="l">Expected Cash Now</div><div class="v">${fmt(expected)}</div></div>
     </div>
     <div class="btn-row" style="margin-top:6px;"><button class="btn btn-outline-dark" id="btnAddMovement">Record Cash Movement</button><button class="btn btn-outline" id="btnCloseCShift">Close Shift</button></div>
-    ${shift.otherMovements.length>0?`<div class="section-title">Other Cash Movements</div><table class="data-table"><thead><tr><th>Type</th><th>Amount</th><th>Note</th><th>Time</th></tr></thead><tbody>
-      ${shift.otherMovements.map(m=>`<tr><td>${m.type}</td><td>${fmt(m.amount)}</td><td>${escapeHtml(m.note)}</td><td>${new Date(m.at).toLocaleTimeString()}</td></tr>`).join('')}</tbody></table>`:''}`;
+    ${shift.otherMovements.length>0?`<div class="section-title">Other Cash Movements</div><table class="data-table"><thead><tr><th>Type</th><th>Amount</th><th>Note</th><th>Time</th><th></th></tr></thead><tbody>
+      ${shift.otherMovements.map(m=>`<tr><td>${m.type}${m.edited?' <span class="badge-voided" style="background:rgba(217,164,65,0.18); color:var(--amber);">Adjusted</span>':''}</td><td>${fmt(m.amount)}</td><td>${escapeHtml(m.note)}</td><td>${new Date(m.at).toLocaleTimeString()}</td><td><button class="small-btn" data-edit-movement="${m.id}">Edit</button></td></tr>`).join('')}</tbody></table>`:''}`;
   }
   html += `<div class="section-title">Pending Waiter Handovers</div>`;
   html += pending.length===0?'<p class="hint">None pending.</p>':`<table class="data-table"><thead><tr><th>Waiter</th><th>Amount</th><th>Requested</th><th></th></tr></thead><tbody>
@@ -1534,18 +1580,65 @@ function wireCashierCash(u){
     if(addM) addM.onclick=()=>openMovementModal(shift);
     const closeBtn=document.getElementById('btnCloseCShift');
     if(closeBtn) closeBtn.onclick=()=>closeCashierShiftModal(u, shift);
+    document.querySelectorAll('[data-edit-movement]').forEach(b=>b.onclick=()=>openEditMovementModal(shift, shift.otherMovements.find(m=>m.id===b.dataset.editMovement)));
   }
   document.querySelectorAll('[data-confirm-ho]').forEach(b=>b.onclick=()=>openConfirmHandoverModal(handovers.find(h=>h.id===b.dataset.confirmHo), u));
 }
+function openEditMovementModal(shift, movement){
+  openGeneric('Edit Cash Movement (Manager Authorization)', `
+    <p class="hint">Current record: ${movement.type==='in'?'Cash In':'Cash Out'} of ${fmt(movement.amount)} — "${escapeHtml(movement.note||'—')}"</p>
+    <div class="form-field full" style="margin-top:10px;"><label>Manager PIN</label><input type="password" id="mvEditPin" maxlength="4" placeholder="••••"></div>
+    <div class="form-grid" style="margin-top:10px;">
+      <div class="form-field"><label>Corrected Type</label><select id="mvEditType"><option value="in" ${movement.type==='in'?'selected':''}>Cash In</option><option value="out" ${movement.type==='out'?'selected':''}>Cash Out</option></select></div>
+      <div class="form-field"><label>Corrected Amount</label><input type="number" id="mvEditAmount" min="0" step="0.5" value="${movement.amount}"></div>
+      <div class="form-field full"><label>Reason for Adjustment</label><select id="mvEditReason">
+        <option value="">— Select a reason —</option>
+        <option value="Data entry correction">Data entry correction</option>
+        <option value="Miscount at time of entry">Miscount at time of entry</option>
+        <option value="Duplicate entry">Duplicate entry</option>
+        <option value="Other (see note)">Other (see note)</option>
+      </select></div>
+      <div class="form-field full"><label>Adjustment Note (optional)</label><input type="text" id="mvEditNote" placeholder="Additional detail"></div>
+    </div>
+    <div class="warn-text" id="mvEditErr"></div>
+  `, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Save Correction', variant:'btn-amber', handler:()=>{
+      const pin=document.getElementById('mvEditPin').value;
+      const manager=users.find(x=>x.role==='manager' && x.pin===pin);
+      if(!manager){ document.getElementById('mvEditErr').textContent='Invalid manager PIN.'; return; }
+      const reason=document.getElementById('mvEditReason').value;
+      if(!reason){ document.getElementById('mvEditErr').textContent='Select a reason for this adjustment.'; return; }
+      const newType=document.getElementById('mvEditType').value;
+      const newAmount=Number(document.getElementById('mvEditAmount').value)||0;
+      const extraNote=document.getElementById('mvEditNote').value.trim();
+      const prevSummary=`${movement.type} ${fmt(movement.amount)} — ${movement.note||'—'}`;
+      movement.type=newType; movement.amount=newAmount; movement.edited=true;
+      movement.note = (movement.note?movement.note+' | ':'') + `[Adjusted: ${reason}${extraNote?' — '+extraNote:''}, authorized by ${manager.name}]`;
+      const newSummary=`${newType} ${fmt(newAmount)} — reason: ${reason}, authorized by ${manager.name}, requested by ${currentUser.name}`;
+      audit('Cash movement adjusted', shift.id, prevSummary, newSummary);
+      persistAll(); closeGeneric(); renderCash(); showToast('Cash movement corrected');
+    }}
+  ]);
+}
 function openCashierShiftModal(u){
   if(!requireOrToast('openCashierShift')) return;
-  openGeneric('Open Cashier Shift', `<div class="form-field full"><label>Opening Cash</label><input type="number" id="openingCashC" min="0" step="0.5" value="0"></div>`, [
+  const carryOver = getCashierCarryOverCash(u.id);
+  openGeneric('Open Cashier Shift', `
+    ${carryOver>0?`<p class="hint">${fmt(carryOver)} was still counted as held at your last shift close (not otherwise accounted for). It carries over automatically as your opening cash and cannot be entered lower than this.</p>`:''}
+    <div class="form-field full" style="margin-top:${carryOver>0?'10px':'0'};"><label>Opening Cash${carryOver>0?' (carried over — raise only if you are actually holding more)':''}</label><input type="number" id="openingCashC" min="${carryOver}" step="0.5" value="${carryOver.toFixed(2)}"></div>
+    <div class="warn-text" id="openCShiftErr"></div>
+  `, [
     {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
     {label:'Open Shift', variant:'btn-amber', handler:()=>{
       const opening=Number(document.getElementById('openingCashC').value)||0;
+      if(opening < carryOver - 0.001){
+        document.getElementById('openCShiftErr').textContent = `Opening cash cannot be less than ${fmt(carryOver)}, the amount still held from your last shift.`;
+        return;
+      }
       const shift={id:uid('cs'), cashierId:u.id, cashierName:u.name, openedAt:Date.now(), closedAt:null, openingCash:opening, cashSalesDirect:0, nonCashSalesDirect:0, salesTotal:0, handoversReceived:0, otherMovements:[], status:'open'};
       cashierShifts.push(shift);
-      audit('Cashier shift opened', shift.id, '', 'opening cash '+fmt(opening));
+      audit('Cashier shift opened', shift.id, '', 'opening cash '+fmt(opening)+(carryOver>0?' (carried over from previous shift, floor '+fmt(carryOver)+')':''));
       persistAll(); closeGeneric(); renderCash(); showToast('Shift opened');
     }}
   ]);
@@ -1562,7 +1655,7 @@ function openMovementModal(shift){
     {label:'Record', variant:'btn-amber', handler:()=>{
       const type=document.getElementById('mvType').value, amount=Number(document.getElementById('mvAmount').value)||0, note=document.getElementById('mvNote').value;
       if(amount<=0) return;
-      shift.otherMovements.push({type, amount, note, at:Date.now()});
+      shift.otherMovements.push({id:uid('mv'), type, amount, note, at:Date.now(), edited:false});
       audit('Cash movement recorded', shift.id, '', type+' '+fmt(amount)+' — '+note);
       persistAll(); closeGeneric(); renderCash();
     }}
@@ -1570,9 +1663,7 @@ function openMovementModal(shift){
 }
 function closeCashierShiftModal(u, shift){
   if(!requireOrToast('closeCashierShift')) return;
-  const otherIn=shift.otherMovements.filter(m=>m.type==='in').reduce((s,m)=>s+m.amount,0);
-  const otherOut=shift.otherMovements.filter(m=>m.type==='out').reduce((s,m)=>s+m.amount,0);
-  const expected = shift.openingCash + shift.cashSalesDirect + shift.handoversReceived + otherIn - otherOut;
+  const expected = cashierExpectedCash(shift);
   openGeneric('Close Cashier Shift', `
     <p class="hint">Expected cash: ${fmt(expected)}</p>
     <div class="form-field full" style="margin-top:10px;"><label>Actual Cash Counted</label><input type="number" id="actualCashC" min="0" step="0.5" value="${expected.toFixed(2)}"></div>`, [
@@ -1662,12 +1753,8 @@ function renderDashboard(){
   const byMethod={cash:0,card:0,upi:0,split:0};
   todays.forEach(r=>{ byMethod[r.paymentMethod]=(byMethod[r.paymentMethod]||0)+r.grandTotal; });
   const maxVal=Math.max(1, ...Object.values(byMethod));
-  const cashWithWaiters = waiterShifts.filter(s=>s.status==='open').reduce((s,sh)=>s+waiterCashInHand(sh),0);
-  const cashWithCashier = cashierShifts.filter(s=>s.status==='open').reduce((s,sh)=>{
-    const otherIn=sh.otherMovements.filter(m=>m.type==='in').reduce((a,m)=>a+m.amount,0);
-    const otherOut=sh.otherMovements.filter(m=>m.type==='out').reduce((a,m)=>a+m.amount,0);
-    return s + sh.openingCash+sh.cashSalesDirect+sh.handoversReceived+otherIn-otherOut;
-  },0);
+  const cashWithWaiters = users.filter(u=>u.role==='waiter').reduce((s,u)=>s+currentWaiterHeldCash(u.id),0);
+  const cashWithCashier = users.filter(u=>u.role==='cashier'||u.role==='manager').reduce((s,u)=>s+currentCashierHeldCash(u.id),0);
   body.innerHTML = `
     <div class="stat-grid">
       <div class="stat-box"><div class="l">Total Revenue Today</div><div class="v">${fmt(revenue)}</div></div>
@@ -1764,6 +1851,13 @@ function renderSettings(){
         ${tables.slice().sort((a,b)=>a.num-b.num).map(t=>`<tr><td>T${t.num}</td><td><input type="number" min="1" data-cap="${t.id}" value="${t.capacity}" style="width:70px; background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.1); color:var(--white); padding:6px; border-radius:4px;"></td><td>${t.waiterId?escapeHtml(userById(t.waiterId).name):'Unassigned'}</td></tr>`).join('')}
       </tbody></table>
     </div>
+
+    ${can('systemReset')?`
+    <div class="shift-card" style="border-color:rgba(194,84,57,0.35);">
+      <div class="section-title" style="margin-top:0; color:var(--rust);">Danger Zone</div>
+      <p class="hint">Permanently clears all shift balances, cash movement logs, and transaction history back to their initial (empty) state. Menu, tables, users, settings, and any in-progress unpaid orders are not affected. The audit log is preserved so this action itself remains on record.</p>
+      <button class="btn btn-outline" id="btnSystemReset" style="margin-top:12px; width:260px; border-color:var(--rust); color:var(--rust);">Reset Shift / Clear History</button>
+    </div>` : ''}
   `;
   document.getElementById('btnSaveSettings').onclick=()=>{
     settings.restaurantName=document.getElementById('sName').value.trim()||settings.restaurantName;
@@ -1825,6 +1919,39 @@ function renderSettings(){
     audit('Menu item deleted', m.name, m.name, '');
     persistAll(); renderSettings();
   });
+  const resetBtn=document.getElementById('btnSystemReset');
+  if(resetBtn) resetBtn.onclick=confirmSystemReset;
+}
+function confirmSystemReset(){
+  if(!requireOrToast('systemReset')) return;
+  openGeneric('Reset Shift / Clear History (Manager Authorization)', `
+    <p class="warn-text" style="margin-top:0;">This permanently clears:</p>
+    <ul style="font-size:12.5px; color:var(--slate); margin:6px 0 12px 18px; line-height:1.6;">
+      <li>${waiterShifts.length+cashierShifts.length} shift record(s) (waiter &amp; cashier)</li>
+      <li>${handovers.length} cash handover record(s)</li>
+      <li>${history.length} completed transaction/receipt record(s)</li>
+    </ul>
+    <p class="hint">Menu, tables, users, settings, and any in-progress unpaid orders are kept. The audit log is kept — this reset itself will be recorded in it. This action cannot be undone.</p>
+    <div class="form-field full" style="margin-top:12px;"><label>Manager PIN</label><input type="password" id="resetPin" maxlength="4" placeholder="••••"></div>
+    <div class="warn-text" id="resetErr"></div>
+  `, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Permanently Reset', variant:'btn-outline', handler:()=>{
+      const pin=document.getElementById('resetPin').value;
+      const manager=users.find(x=>x.role==='manager' && x.pin===pin);
+      if(!manager){ document.getElementById('resetErr').textContent='Invalid manager PIN.'; return; }
+      performSystemReset(manager);
+      closeGeneric();
+    }}
+  ]);
+}
+function performSystemReset(manager){
+  const summary = `${waiterShifts.length} waiter shift(s), ${cashierShifts.length} cashier shift(s), ${handovers.length} handover(s), ${history.length} transaction(s)`;
+  waiterShifts=[]; cashierShifts=[]; handovers=[]; history=[];
+  audit('SYSTEM RESET', 'system', summary, `cleared to initial state — authorized by ${manager.name}, requested by ${currentUser.name}`);
+  persistAll();
+  renderSettings(); renderFloor();
+  showToast('Shifts, cash movements and transaction history have been reset');
 }
 function openUserForm(u){
   const editing=!!u;
