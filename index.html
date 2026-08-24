@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Asmara &amp; Addis — POS</title>
+<link rel="manifest" href="manifest.json">
 <style>
 :root{
   --charcoal:#171614; --charcoal-2:#201E1B; --charcoal-3:#2B2824; --charcoal-4:#38342E;
@@ -24,7 +25,7 @@ button{ cursor:pointer; }
 
 /* ===== LOGIN ===== */
 #loginScreen{
-  position:fixed; inset:0; display:flex; z-index:1000; background:var(--charcoal);
+  position:fixed; inset:0; display:flex; flex-direction:column; z-index:1000; background:var(--charcoal);
   background-image:
     radial-gradient(circle at 12% 22%, rgba(217,164,65,0.05) 0 3px, transparent 4px),
     radial-gradient(circle at 46% 68%, rgba(217,164,65,0.04) 0 4px, transparent 5px),
@@ -35,32 +36,33 @@ button{ cursor:pointer; }
   background-size: 220px 220px, 260px 260px, 300px 300px, 240px 240px, 280px 280px, 190px 190px;
 }
 .login-panel-brand{
-  width:380px; flex-shrink:0; background:linear-gradient(165deg, var(--charcoal-2), var(--charcoal) 75%);
-  border-right:1px solid rgba(217,164,65,0.16); display:flex; flex-direction:column; justify-content:space-between; padding:46px 40px;
+  width:100%; flex-shrink:0; background:linear-gradient(100deg, var(--charcoal-2), var(--charcoal) 85%);
+  border-bottom:1px solid rgba(217,164,65,0.16); display:flex; align-items:center; justify-content:space-between; padding:26px 48px;
   position:relative; overflow:hidden;
 }
 .login-panel-brand::after{
-  content:''; position:absolute; right:-40px; bottom:-30px; width:280px; height:320px; pointer-events:none; opacity:.07;
-  background-repeat:no-repeat; background-size:contain; background-position:bottom right;
+  content:''; position:absolute; right:-20px; top:-40px; width:220px; height:250px; pointer-events:none; opacity:.06;
+  background-repeat:no-repeat; background-size:contain; background-position:top right;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 340'%3E%3Cg fill='none' stroke='%23D9A441' stroke-width='2'%3E%3Cpath d='M150 8 L150 42'/%3E%3Cpath d='M150 20 C 112 8, 90 34, 100 58'/%3E%3Cellipse cx='96' cy='52' rx='16' ry='10' transform='rotate(-30 96 52)'/%3E%3Ccircle cx='150' cy='72' r='19'/%3E%3Ccircle cx='123' cy='98' r='19'/%3E%3Ccircle cx='177' cy='98' r='19'/%3E%3Ccircle cx='104' cy='128' r='19'/%3E%3Ccircle cx='150' cy='128' r='19'/%3E%3Ccircle cx='196' cy='128' r='19'/%3E%3Ccircle cx='87' cy='158' r='19'/%3E%3Ccircle cx='129' cy='158' r='19'/%3E%3Ccircle cx='171' cy='158' r='19'/%3E%3Ccircle cx='213' cy='158' r='19'/%3E%3Ccircle cx='108' cy='188' r='19'/%3E%3Ccircle cx='150' cy='188' r='19'/%3E%3Ccircle cx='192' cy='188' r='19'/%3E%3Ccircle cx='129' cy='216' r='19'/%3E%3Ccircle cx='171' cy='216' r='19'/%3E%3Ccircle cx='150' cy='242' r='19'/%3E%3C/g%3E%3C/svg%3E");
 }
 .login-panel-brand > *{ position:relative; z-index:1; }
+.login-brand-left{ display:flex; align-items:center; gap:26px; }
 .login-logo{
-  width:64px; height:64px; border-radius:14px; border:1.5px dashed rgba(217,164,65,0.5); background:rgba(217,164,65,0.05);
-  display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden; position:relative; transition:all .15s ease;
+  width:192px; height:192px; border-radius:26px; border:1.5px dashed rgba(217,164,65,0.5); background:rgba(217,164,65,0.05);
+  display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden; position:relative; transition:all .15s ease; flex-shrink:0;
 }
 .login-logo:hover{ border-color:var(--amber); background:rgba(217,164,65,0.1); }
 .login-logo img{ width:100%; height:100%; object-fit:cover; display:block; }
-.login-logo .mark-txt{ font-family:var(--font-display); font-size:16px; font-weight:700; color:var(--amber); }
+.login-logo .mark-txt{ font-family:var(--font-display); font-size:46px; font-weight:700; color:var(--amber); }
 .login-logo .logo-hint{
   position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(10,9,7,0.72);
-  color:var(--amber); font-size:8.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; text-align:center; opacity:0; transition:opacity .15s ease; padding:4px;
+  color:var(--amber); font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; text-align:center; opacity:0; transition:opacity .15s ease; padding:4px;
 }
 .login-logo:hover .logo-hint{ opacity:1; }
 .login-logo-caption{ font-size:9.5px; color:var(--slate-dim); margin-top:8px; letter-spacing:.03em; }
-.login-panel-brand .n{ font-family:var(--font-display); font-size:33px; font-weight:700; letter-spacing:-.01em; line-height:1.18; margin-top:18px; }
-.login-panel-brand .s{ font-family:var(--font-mono); font-size:10.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--amber); margin-top:9px; }
-.login-panel-brand .rule{ width:52px; height:2px; background:var(--amber); margin-top:24px; opacity:.55; }
+.login-panel-brand .n{ font-family:var(--font-display); font-size:34px; font-weight:700; letter-spacing:-.01em; line-height:1.15; }
+.login-panel-brand .s{ font-family:var(--font-mono); font-size:10.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--amber); margin-top:8px; }
+.login-panel-brand .foot{ text-align:right; }
 .login-panel-brand .foot .d{ font-size:10.5px; color:var(--slate-dim); text-transform:uppercase; letter-spacing:.09em; margin-bottom:6px; }
 .login-panel-brand .foot .t{ font-family:var(--font-mono); font-size:24px; color:var(--white); font-variant-numeric:tabular-nums; letter-spacing:.01em; }
 
@@ -99,12 +101,12 @@ button{ cursor:pointer; }
 .pin-back:hover{ color:var(--amber); }
 .pin-screen-header{ display:flex; flex-direction:column; align-items:center; gap:14px; text-align:center; }
 .pin-screen-logo{
-  width:60px; height:60px; border-radius:14px; overflow:hidden; flex-shrink:0; background:rgba(217,164,65,0.08);
+  width:180px; height:180px; border-radius:26px; overflow:hidden; flex-shrink:0; background:rgba(217,164,65,0.08);
   border:1.5px solid rgba(217,164,65,0.3); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .15s ease;
 }
 .pin-screen-logo:hover{ border-color:var(--amber); background:rgba(217,164,65,0.14); }
 .pin-screen-logo img{ width:100%; height:100%; object-fit:cover; display:block; }
-.pin-screen-logo .mark-txt{ font-family:var(--font-display); font-weight:700; font-size:16px; color:var(--amber); }
+.pin-screen-logo .mark-txt{ font-family:var(--font-display); font-weight:700; font-size:44px; color:var(--amber); }
 .pin-screen-brand .n{ font-family:var(--font-display); font-size:32px; font-weight:700; letter-spacing:-.01em; }
 .pin-screen-brand .s{ font-family:var(--font-mono); font-size:10.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--amber); margin-top:6px; }
 .pin-user-row{ display:flex; align-items:center; gap:12px; background:var(--charcoal-3); padding:9px 18px 9px 9px; border-radius:30px; }
@@ -159,12 +161,21 @@ main{ flex:1; overflow:hidden; position:relative; }
 .dot{ width:9px; height:9px; border-radius:50%; display:inline-block; }
 
 /* ===== FLOOR ===== */
+.zone-tabs{ display:flex; gap:8px; margin-bottom:16px; }
+.zone-tab{ background:var(--charcoal-2); border:1px solid rgba(255,255,255,0.08); color:var(--slate); padding:7px 16px; border-radius:20px; font-size:12px; font-weight:600; }
+.zone-tab.active{ background:var(--amber); color:#2a1f08; border-color:var(--amber); }
+.zone-tab:hover:not(.active){ color:var(--white); border-color:rgba(217,164,65,0.35); }
+.zone-section-title{ font-family:var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.1em; color:var(--slate-dim); margin:22px 0 10px; }
+.zone-section-title:first-child{ margin-top:0; }
 .table-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(148px,1fr)); gap:16px; }
 .tcard{ background:var(--charcoal-2); border:1px solid rgba(255,255,255,0.06); border-radius:var(--radius); padding:16px 14px; min-height:126px; position:relative; transition:transform .15s ease, border-color .15s ease; display:flex; flex-direction:column; justify-content:space-between; }
 .tcard:hover{ transform:translateY(-2px); border-color:rgba(217,164,65,0.35); }
 .tcard .sbar{ position:absolute; top:0; left:0; right:0; height:3px; border-radius:var(--radius) var(--radius) 0 0; }
 .tcard.st-available .sbar{ background:var(--sage); } .tcard.st-occupied .sbar{ background:var(--amber); } .tcard.st-reserved .sbar{ background:var(--plum); }
+.tnum-row{ display:flex; align-items:center; justify-content:space-between; gap:6px; }
 .tnum{ font-family:var(--font-mono); font-size:23px; font-weight:700; }
+.zone-badge{ font-size:8.5px; text-transform:uppercase; letter-spacing:.05em; font-weight:700; padding:2px 7px; border-radius:8px; background:rgba(255,255,255,0.06); color:var(--slate-dim); }
+.zone-badge.z-outdoor{ background:rgba(74,138,99,0.16); color:var(--sage); }
 .tcap{ font-size:10px; color:var(--slate-dim); text-transform:uppercase; letter-spacing:.05em; margin-top:2px; }
 .tfoot{ display:flex; justify-content:space-between; align-items:flex-end; margin-top:10px; }
 .tstatus{ font-size:9.5px; text-transform:uppercase; letter-spacing:.08em; font-weight:700; }
@@ -353,16 +364,17 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
 
 <div id="loginScreen">
   <div class="login-panel-brand">
-    <div>
+    <div class="login-brand-left">
       <div class="login-logo" id="loginLogo" title="Click to upload a logo">
         <span class="mark-txt" id="loginLogoMark">A&amp;A</span>
         <div class="logo-hint">Upload<br>Logo</div>
       </div>
       <input type="file" id="loginLogoFile" accept="image/*" style="display:none;">
-      <div class="login-logo-caption">Click logo to update</div>
-      <div class="n">Asmara &amp; Addis</div>
-      <div class="s">Point of Sale</div>
-      <div class="rule"></div>
+      <div>
+        <div class="n" id="loginHeaderName">Asmara &amp; Addis</div>
+        <div class="s">Point of Sale</div>
+        <div class="login-logo-caption">Click logo to update</div>
+      </div>
     </div>
     <div class="foot">
       <div class="d" id="loginDate">—</div>
@@ -380,7 +392,7 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
         <div class="pin-screen-header">
           <div class="pin-screen-logo" id="pinScreenLogo" title="Click to update logo"></div>
           <div class="pin-screen-brand">
-            <div class="n">Asmara &amp; Addis</div>
+            <div class="n" id="pinBrandName">Asmara &amp; Addis</div>
             <div class="s">Point of Sale — Enter PIN</div>
           </div>
         </div>
@@ -422,7 +434,12 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
           <span><i class="dot" style="background:var(--plum)"></i>Reserved</span>
         </div>
       </div>
-      <div class="table-grid" id="tableGrid"></div>
+      <div class="zone-tabs" id="zoneTabs">
+        <button class="zone-tab active" data-zone="all">All Tables</button>
+        <button class="zone-tab" data-zone="indoor">Indoor</button>
+        <button class="zone-tab" data-zone="outdoor">Outdoor</button>
+      </div>
+      <div id="tableGridWrap"></div>
     </div></div>
 
     <div class="view" id="view-order">
@@ -502,8 +519,20 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
 const DEFAULT_SETTINGS = {
   restaurantName:"Asmara & Addis", address:"14 Marina Road, Conakry", taxId:"TX-2291-04",
   taxRate:8, serviceChargeRate:10, currency:"$", tableCount:12,
-  tipEnabled:true, serviceChargeEnabled:true, waiterCanDiscount:true, receiptCounter:1, logoImage:null
+  tipEnabled:true, serviceChargeEnabled:true, waiterCanDiscount:true, receiptCounter:1, logoImage:null,
+  themeColor:"amber"
 };
+const THEMES = {
+  amber:   {label:"Amber",    accent:"#D9A441", bright:"#F0C267"},
+  emerald: {label:"Emerald",  accent:"#3F9B6B", bright:"#63C48C"},
+  sapphire:{label:"Sapphire", accent:"#3E7CC9", bright:"#6BA3E8"},
+  rose:    {label:"Rose",     accent:"#C2496B", bright:"#E07998"}
+};
+function applyTheme(){
+  const t = THEMES[settings.themeColor] || THEMES.amber;
+  document.documentElement.style.setProperty('--amber', t.accent);
+  document.documentElement.style.setProperty('--amber-bright', t.bright);
+}
 const DEFAULT_USERS = [
   {id:"u1", name:"Grace Boma", role:"manager", pin:"1111"},
   {id:"u2", name:"Youssef Camara", role:"cashier", pin:"2222"},
@@ -537,12 +566,13 @@ function uid(p){ return (p||'id')+'-'+Math.random().toString(36).slice(2,9)+Date
 let settings = load('posv2_settings', DEFAULT_SETTINGS);
 let users = load('posv2_users', DEFAULT_USERS);
 let menu = load('posv2_menu', DEFAULT_MENU);
+function zoneForIndex(i, count){ return i < Math.ceil(count*0.7) ? 'indoor' : 'outdoor'; }
 let tables = load('posv2_tables', null);
 if(!tables){
   tables = [];
   for(let i=0;i<settings.tableCount;i++){
     const num=i+1;
-    tables.push({id:uid('t'), num, capacity:TABLE_PATTERN[i%TABLE_PATTERN.length], waiterId: (num%2===0? 'u4':'u3') });
+    tables.push({id:uid('t'), num, capacity:TABLE_PATTERN[i%TABLE_PATTERN.length], waiterId: (num%2===0? 'u4':'u3'), zone: zoneForIndex(i, settings.tableCount) });
   }
   save('posv2_tables', tables);
 }
@@ -561,6 +591,13 @@ let session = load('posv2_session', null);
     (sh.otherMovements||[]).forEach(m=>{ if(!m.id){ m.id=uid('mv'); changed=true; } if(m.edited===undefined){ m.edited=false; } });
   });
   if(changed) save('posv2_cashierShifts', cashierShifts);
+})();
+
+// migration: tables saved before indoor/outdoor zones existed
+(function migrateTableZones(){
+  let changed=false;
+  tables.forEach(t=>{ if(t.zone!=='indoor' && t.zone!=='outdoor'){ t.zone='indoor'; changed=true; } });
+  if(changed) save('posv2_tables', tables);
 })();
 
 function persistAll(){
@@ -651,6 +688,10 @@ function renderLoginLogo(){
   if(box) box.innerHTML = html + (settings.logoImage ? '<div class="logo-hint">Change<br>Logo</div>' : '<div class="logo-hint">Upload<br>Logo</div>');
   const pinBox=document.getElementById('pinScreenLogo');
   if(pinBox) pinBox.innerHTML = html;
+}
+function renderLoginBrand(){
+  const n1=document.getElementById('loginHeaderName'); if(n1) n1.textContent=settings.restaurantName;
+  const n2=document.getElementById('pinBrandName'); if(n2) n2.textContent=settings.restaurantName;
 }
 document.getElementById('loginLogo').addEventListener('click', ()=>document.getElementById('loginLogoFile').click());
 document.getElementById('pinScreenLogo').addEventListener('click', ()=>document.getElementById('loginLogoFile').click());
@@ -805,30 +846,49 @@ function visibleTables(){
   if(currentUser.role==='waiter') return tables.filter(t=>t.waiterId===currentUser.id);
   return tables;
 }
-function renderFloor(){
-  document.getElementById('floorTitle').textContent = currentUser.role==='waiter' ? 'My Tables' : 'Floor Plan';
-  const grid=document.getElementById('tableGrid');
-  const list = visibleTables().slice().sort((a,b)=>a.num-b.num);
-  if(list.length===0){ grid.innerHTML='<div class="empty-note">No tables assigned to you yet.</div>'; return; }
-  grid.innerHTML = list.map(t=>{
-    const status=getTableStatus(t);
-    const orders=getTableOrders(t.id);
-    const total=orders.reduce((s,o)=>s+calcTotals(o).grandTotal,0);
-    const w=userById(t.waiterId);
-    return `<div class="tcard st-${status}" data-tid="${t.id}">
+let currentFloorZone='all';
+function tcardHtml(t){
+  const status=getTableStatus(t);
+  const orders=getTableOrders(t.id);
+  const total=orders.reduce((s,o)=>s+calcTotals(o).grandTotal,0);
+  const w=userById(t.waiterId);
+  const zone=t.zone==='outdoor'?'outdoor':'indoor';
+  return `<div class="tcard st-${status}" data-tid="${t.id}">
       <div class="sbar"></div>
-      <div><div class="tnum">T${t.num}</div><div class="tcap">Seats ${t.capacity}</div></div>
+      <div><div class="tnum-row"><div class="tnum">T${t.num}</div><div class="zone-badge z-${zone}">${zone}</div></div><div class="tcap">Seats ${t.capacity}</div></div>
       <div class="tfoot">
         <div><div class="tstatus">${status}</div><div class="twaiter">${w?escapeHtml(w.name):'Unassigned'}</div></div>
         <div class="ttotal">${total>0?fmt(total):''}</div>
       </div>
     </div>`;
-  }).join('');
-  grid.querySelectorAll('.tcard').forEach(card=>{
+}
+function renderFloor(){
+  document.getElementById('floorTitle').textContent = currentUser.role==='waiter' ? 'My Tables' : 'Floor Plan';
+  const wrap=document.getElementById('tableGridWrap');
+  document.querySelectorAll('.zone-tab').forEach(b=>b.classList.toggle('active', b.dataset.zone===currentFloorZone));
+  const list = visibleTables().slice().sort((a,b)=>a.num-b.num);
+  if(list.length===0){ wrap.innerHTML='<div class="empty-note">No tables assigned to you yet.</div>'; return; }
+  let html='';
+  if(currentFloorZone==='all'){
+    const indoor=list.filter(t=>t.zone!=='outdoor'), outdoor=list.filter(t=>t.zone==='outdoor');
+    if(indoor.length) html += `<div class="zone-section-title">Indoor (${indoor.length})</div><div class="table-grid">${indoor.map(tcardHtml).join('')}</div>`;
+    if(outdoor.length) html += `<div class="zone-section-title">Outdoor (${outdoor.length})</div><div class="table-grid">${outdoor.map(tcardHtml).join('')}</div>`;
+  } else {
+    const filtered = list.filter(t=>(t.zone==='outdoor'?'outdoor':'indoor')===currentFloorZone);
+    html = filtered.length ? `<div class="table-grid">${filtered.map(tcardHtml).join('')}</div>` : '<div class="empty-note">No tables in this section.</div>';
+  }
+  wrap.innerHTML=html;
+  wrap.querySelectorAll('.tcard').forEach(card=>{
     card.addEventListener('click', ()=>openTable(card.dataset.tid));
     card.addEventListener('contextmenu', (e)=>{ e.preventDefault(); showTableContextMenu(e, tableById(card.dataset.tid)); });
   });
 }
+document.getElementById('zoneTabs').addEventListener('click', (e)=>{
+  const btn=e.target.closest('.zone-tab');
+  if(!btn) return;
+  currentFloorZone=btn.dataset.zone;
+  renderFloor();
+});
 function showTableContextMenu(e, t){
   const menuEl=document.getElementById('ctxMenu');
   const status=getTableStatus(t);
@@ -839,6 +899,10 @@ function showTableContextMenu(e, t){
     else items+=`<button class="ctx-item" disabled>Table is occupied</button>`;
   }
   if(can('assignWaiter')) items+=`<button class="ctx-item" data-act="assign">Assign Waiter…</button>`;
+  if(can('configureTables')){
+    const zone=t.zone==='outdoor'?'outdoor':'indoor';
+    items+=`<button class="ctx-item" data-act="toggle-zone">Move to ${zone==='outdoor'?'Indoor':'Outdoor'}</button>`;
+  }
   items+=`<button class="ctx-item" data-act="open">Open Table</button>`;
   menuEl.innerHTML=items;
   menuEl.style.left=Math.min(e.clientX, window.innerWidth-210)+'px';
@@ -850,6 +914,14 @@ function showTableContextMenu(e, t){
       if(act==='reserve'){ if(requireOrToast('reserveTable')){ t.manualReserved=true; audit('Table reserved','table:'+t.num,'','reserved'); persistAll(); renderFloor(); showToast('Table T'+t.num+' marked reserved'); } }
       if(act==='clear-reserve'){ if(requireOrToast('reserveTable')){ t.manualReserved=false; audit('Reservation cleared','table:'+t.num,'reserved',''); persistAll(); renderFloor(); showToast('Reservation cleared'); } }
       if(act==='assign'){ if(requireOrToast('assignWaiter')) openAssignWaiterModal(t); }
+      if(act==='toggle-zone'){
+        if(requireOrToast('configureTables')){
+          const prevZone=t.zone==='outdoor'?'outdoor':'indoor';
+          t.zone = prevZone==='outdoor' ? 'indoor' : 'outdoor';
+          audit('Table zone changed','table:'+t.num,prevZone,t.zone);
+          persistAll(); renderFloor(); showToast('Table T'+t.num+' moved to '+t.zone);
+        }
+      }
       if(act==='open'){ openTable(t.id); }
       hideContextMenu();
     };
@@ -1758,7 +1830,6 @@ function renderDashboard(){
     <div class="stat-grid">
       <div class="stat-box"><div class="l">Total Revenue Today</div><div class="v">${fmt(revenue)}</div></div>
       <div class="stat-box"><div class="l">Orders Today</div><div class="v">${count}</div></div>
-      <div class="stat-box"><div class="l">Average Order Value</div><div class="v">${fmt(avg)}</div></div>
       <div class="stat-box"><div class="l">Discounts Given</div><div class="v">${fmt(discounts)}</div></div>
       <div class="stat-box"><div class="l">Tax Collected</div><div class="v">${fmt(tax)}</div></div>
       <div class="stat-box"><div class="l">Service Charges</div><div class="v">${fmt(sc)}</div></div>
@@ -1825,6 +1896,12 @@ function renderSettings(){
         <div class="form-field check"><input type="checkbox" id="sTip" ${settings.tipEnabled?'checked':''}><label for="sTip">Enable tip field</label></div>
         <div class="form-field check"><input type="checkbox" id="sSc" ${settings.serviceChargeEnabled?'checked':''}><label for="sSc">Enable service charge</label></div>
         <div class="form-field check"><input type="checkbox" id="sWaiterDisc" ${settings.waiterCanDiscount?'checked':''}><label for="sWaiterDisc">Waiters may apply discounts</label></div>
+        <div class="form-field full">
+          <label>Theme Color</label>
+          <div id="themeSwatches" style="display:flex; gap:10px; margin-top:4px;">
+            ${Object.keys(THEMES).map(key=>`<button type="button" class="theme-swatch${settings.themeColor===key?' selected':''}" data-theme="${key}" title="${THEMES[key].label}" style="width:34px; height:34px; border-radius:50%; background:${THEMES[key].accent}; border:2px solid ${settings.themeColor===key?'#fff':'transparent'}; cursor:pointer;"></button>`).join('')}
+          </div>
+        </div>
       </div>
       <button class="btn btn-amber" id="btnSaveSettings" style="margin-top:14px; width:220px;">Save Settings</button>
     </div>
@@ -1846,8 +1923,8 @@ function renderSettings(){
 
     <div class="shift-card">
       <div class="section-title" style="margin-top:0;">Tables</div>
-      <table class="data-table"><thead><tr><th>Table</th><th>Capacity</th><th>Waiter</th></tr></thead><tbody>
-        ${tables.slice().sort((a,b)=>a.num-b.num).map(t=>`<tr><td>T${t.num}</td><td><input type="number" min="1" data-cap="${t.id}" value="${t.capacity}" style="width:70px; background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.1); color:var(--white); padding:6px; border-radius:4px;"></td><td>${t.waiterId?escapeHtml(userById(t.waiterId).name):'Unassigned'}</td></tr>`).join('')}
+      <table class="data-table"><thead><tr><th>Table</th><th>Capacity</th><th>Section</th><th>Waiter</th></tr></thead><tbody>
+        ${tables.slice().sort((a,b)=>a.num-b.num).map(t=>`<tr><td>T${t.num}</td><td><input type="number" min="1" data-cap="${t.id}" value="${t.capacity}" style="width:70px; background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.1); color:var(--white); padding:6px; border-radius:4px;"></td><td><select data-zone="${t.id}" style="background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.1); color:var(--white); padding:6px; border-radius:4px;"><option value="indoor" ${t.zone!=='outdoor'?'selected':''}>Indoor</option><option value="outdoor" ${t.zone==='outdoor'?'selected':''}>Outdoor</option></select></td><td>${t.waiterId?escapeHtml(userById(t.waiterId).name):'Unassigned'}</td></tr>`).join('')}
       </tbody></table>
     </div>
 
@@ -1858,6 +1935,16 @@ function renderSettings(){
       <button class="btn btn-outline" id="btnSystemReset" style="margin-top:12px; width:260px; border-color:var(--rust); color:var(--rust);">Reset Shift / Clear History</button>
     </div>` : ''}
   `;
+  document.querySelectorAll('.theme-swatch').forEach(sw=>{
+    sw.onclick=()=>{
+      settings.themeColor=sw.dataset.theme;
+      applyTheme();
+      document.querySelectorAll('.theme-swatch').forEach(s=>{ s.style.border = s.dataset.theme===settings.themeColor ? '2px solid #fff' : '2px solid transparent'; s.classList.toggle('selected', s.dataset.theme===settings.themeColor); });
+    };
+  });
+  document.querySelectorAll('[data-zone]').forEach(sel=>{
+    sel.onchange=()=>{ const t=tableById(sel.dataset.zone); if(t){ t.zone=sel.value; persistAll(); renderFloor(); } };
+  });
   document.getElementById('btnSaveSettings').onclick=()=>{
     settings.restaurantName=document.getElementById('sName').value.trim()||settings.restaurantName;
     settings.address=document.getElementById('sAddr').value;
@@ -1874,14 +1961,14 @@ function renderSettings(){
       const result=[];
       for(let i=0;i<newCount;i++){
         const num=i+1; const prev=existing.find(t=>t.num===num);
-        result.push(prev || {id:uid('t'), num, capacity:TABLE_PATTERN[i%TABLE_PATTERN.length], waiterId:null});
+        result.push(prev || {id:uid('t'), num, capacity:TABLE_PATTERN[i%TABLE_PATTERN.length], waiterId:null, zone: zoneForIndex(i, newCount)});
       }
       existing.forEach(t=>{ if(t.num>newCount && getTableOrders(t.id).length>0) result.push(t); });
       tables=result; settings.tableCount=newCount;
     }
     document.querySelectorAll('[data-cap]').forEach(inp=>{ const t=tableById(inp.dataset.cap); if(t) t.capacity=Number(inp.value)||t.capacity; });
     audit('Settings updated','settings','','updated');
-    persistAll(); renderTopbar(); renderFloor(); renderLoginLogo(); renderSettings();
+    persistAll(); applyTheme(); renderTopbar(); renderFloor(); renderLoginLogo(); renderLoginBrand(); renderSettings();
     showToast('Settings saved');
   };
   const sLogoFile=document.getElementById('sLogoFile');
@@ -2063,8 +2150,10 @@ document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',
 document.querySelectorAll('.modal-overlay').forEach(ov=>ov.addEventListener('click', (e)=>{ if(e.target===ov) ov.classList.remove('open'); }));
 
 /* ===================== INIT ===================== */
+applyTheme();
 renderUserGrid();
 renderLoginLogo();
+renderLoginBrand();
 updateLoginClock();
 if(currentUser){ enterApp(); }
 })();
