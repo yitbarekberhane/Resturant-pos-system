@@ -5,10 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Asmara &amp; Addis — POS</title>
 <link rel="manifest" href="manifest.json">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --charcoal:#171614; --charcoal-2:#201E1B; --charcoal-3:#2B2824; --charcoal-4:#38342E;
-  --amber:#D9A441; --amber-bright:#F0C267; --sage:#4A8A63; --rust:#C25439; --plum:#9C7BB0;
+  --amber:#D9A441; --amber-bright:#F0C267; --sage:#4A8A63; --rust:#C25439; --plum:#9C7BB0; --teal:#3E8FA6;
   --slate:#9A968B; --slate-dim:#6E6A61; --ticket:#F4F0E6; --ticket-line:#DED6C1; --white:#F7F5EF;
   --font-display:"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,'Times New Roman',serif;
   --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -67,6 +68,21 @@ button{ cursor:pointer; }
 .login-panel-brand .foot .t{ font-family:var(--font-mono); font-size:24px; color:var(--white); font-variant-numeric:tabular-nums; letter-spacing:.01em; }
 
 .login-panel-main{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px; gap:22px; overflow-y:auto; }
+
+/* Auth screen */
+#authScreen{
+  position:fixed; inset:0; z-index:1100; background:var(--charcoal); display:flex; align-items:center; justify-content:center; padding:24px;
+}
+.auth-card{ width:100%; max-width:400px; background:var(--charcoal-2); border:1px solid rgba(217,164,65,0.16); border-radius:var(--radius); padding:36px 32px; text-align:center; }
+.auth-logo{ width:64px; height:64px; margin:0 auto 14px; border-radius:14px; background:rgba(217,164,65,0.1); border:1.5px dashed rgba(217,164,65,0.5); display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:700; font-size:20px; color:var(--amber); }
+.auth-title{ font-family:var(--font-display); font-size:24px; font-weight:700; }
+.auth-sub{ font-size:12px; color:var(--slate); margin-top:6px; margin-bottom:22px; }
+.auth-tabs{ display:flex; gap:8px; margin-bottom:20px; background:var(--charcoal-3); border-radius:20px; padding:4px; }
+.auth-tab{ flex:1; padding:8px; border-radius:16px; font-size:12.5px; font-weight:700; color:var(--slate); }
+.auth-tab.active{ background:var(--amber); color:#2a1f08; }
+.auth-form .form-field{ margin-bottom:12px; text-align:left; }
+.auth-error{ background:rgba(194,84,57,0.15); border:1px solid rgba(194,84,57,0.4); color:#e08b76; font-size:12px; padding:9px 12px; border-radius:6px; margin-bottom:14px; text-align:left; }
+.auth-hint{ font-size:11.5px; color:var(--sage); margin-top:12px; }
 .login-step-label{ font-family:var(--font-mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--slate-dim); text-align:center; margin-bottom:26px; }
 .user-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); gap:8px 6px; max-width:620px; width:100%; }
 .user-card{
@@ -81,9 +97,11 @@ button{ cursor:pointer; }
 .role-manager{ background:rgba(217,164,65,0.18); color:var(--amber); }
 .role-cashier{ background:rgba(156,123,176,0.2); color:var(--plum); }
 .role-waiter{ background:rgba(74,138,99,0.2); color:var(--sage); }
+.role-accountant{ background:rgba(62,143,166,0.2); color:var(--teal); }
 .avatar-circle.role-manager, .avatar-lg.role-manager{ background:var(--amber); }
 .avatar-circle.role-cashier, .avatar-lg.role-cashier{ background:var(--plum); }
 .avatar-circle.role-waiter, .avatar-lg.role-waiter{ background:var(--sage); }
+.avatar-circle.role-accountant, .avatar-lg.role-accountant{ background:var(--teal); }
 
 #loginScreen.pin-mode .login-panel-brand{ display:none; }
 .pin-screen{
@@ -362,7 +380,34 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
 </head>
 <body>
 
-<div id="loginScreen">
+<div id="authScreen" style="display:none;">
+  <div class="auth-card">
+    <div class="auth-logo">A&amp;A</div>
+    <div class="auth-title">Restaurant POS</div>
+    <div class="auth-sub">Sign in to your business account</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-auth="signin">Sign In</button>
+      <button class="auth-tab" data-auth="signup">Sign Up</button>
+    </div>
+    <div id="authError" class="auth-error" style="display:none;"></div>
+
+    <div id="authSignIn" class="auth-form">
+      <div class="form-field full"><label>Email</label><input id="siEmail" type="email" autocomplete="email"></div>
+      <div class="form-field full"><label>Password</label><input id="siPassword" type="password" autocomplete="current-password"></div>
+      <button class="btn btn-amber" id="btnSignIn" style="width:100%; margin-top:8px;">Sign In</button>
+    </div>
+
+    <div id="authSignUp" class="auth-form" style="display:none;">
+      <div class="form-field full"><label>Restaurant / Business Name</label><input id="suBusiness" placeholder="e.g. Asmara &amp; Addis"></div>
+      <div class="form-field full"><label>Email</label><input id="suEmail" type="email" autocomplete="email"></div>
+      <div class="form-field full"><label>Password</label><input id="suPassword" type="password" autocomplete="new-password" placeholder="At least 6 characters"></div>
+      <button class="btn btn-amber" id="btnSignUp" style="width:100%; margin-top:8px;">Create Account</button>
+    </div>
+    <div class="auth-hint" id="authHint" style="display:none;">Check your email to confirm your account, then sign in.</div>
+  </div>
+</div>
+
+<div id="loginScreen" style="display:none;">
   <div class="login-panel-brand">
     <div class="login-brand-left">
       <div class="login-logo" id="loginLogo" title="Click to upload a logo">
@@ -469,6 +514,20 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
       <div id="dashBody"></div>
     </div></div>
 
+    <div class="view" id="view-finance"><div class="pad">
+      <div class="head-row"><h2>Accounting</h2></div>
+      <div class="zone-tabs" id="acctTabs">
+        <button class="zone-tab active" data-acct="overview">Overview</button>
+        <button class="zone-tab" data-acct="journal">Journal</button>
+        <button class="zone-tab" data-acct="pl">P&amp;L</button>
+        <button class="zone-tab" data-acct="bs">Balance Sheet</button>
+        <button class="zone-tab" data-acct="recon">Bank Reconciliation</button>
+        <button class="zone-tab" data-acct="tax">Tax Filings</button>
+        <button class="zone-tab" data-acct="fx">Currencies</button>
+      </div>
+      <div id="acctBody"></div>
+    </div></div>
+
     <div class="view" id="view-audit"><div class="pad">
       <div class="head-row"><h2>Audit Trail</h2></div>
       <div class="filters-row" id="auditFilters"></div>
@@ -515,6 +574,13 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
 (function(){
 "use strict";
 
+/* ===================== SUPABASE (multi-tenant auth + sync) ===================== */
+const SUPABASE_URL = 'https://ofswdoczzjduwfvqybcg.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_R7w2j_N6nZOzC1mqInZ8zQ_lsWIbFB4';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let currentBusinessId = null;
+let authUser = null;
+
 /* ===================== SEED DATA ===================== */
 const DEFAULT_SETTINGS = {
   restaurantName:"Asmara & Addis", address:"14 Marina Road, Conakry", taxId:"TX-2291-04",
@@ -537,7 +603,8 @@ const DEFAULT_USERS = [
   {id:"u1", name:"Grace Boma", role:"manager", pin:"1111"},
   {id:"u2", name:"Youssef Camara", role:"cashier", pin:"2222"},
   {id:"u3", name:"Aicha Diallo", role:"waiter", pin:"3333"},
-  {id:"u4", name:"Moussa Keita", role:"waiter", pin:"3334"}
+  {id:"u4", name:"Moussa Keita", role:"waiter", pin:"3334"},
+  {id:"u5", name:"Fatima Sylla", role:"accountant", pin:"5555"}
 ];
 const DEFAULT_MENU = [
   {id:"m1",category:"Sambusa & Starters",name:"Meat Sambusa",description:"Crisp pastry, spiced minced beef, onion",price:5.5,veg:false,available:true},
@@ -584,6 +651,57 @@ let handovers = load('posv2_handovers', []);
 let auditLog = load('posv2_audit', []);
 let session = load('posv2_session', null);
 
+/* ===================== ACCOUNTING (ACCOUNTANT LOGIN) ===================== */
+const DEFAULT_LEDGER_ACCOUNTS = [
+  {id:'1000', code:'1000', name:'Cash on Hand', type:'asset'},
+  {id:'1010', code:'1010', name:'Bank Account', type:'asset'},
+  {id:'2000', code:'2000', name:'Sales Tax Payable', type:'liability'},
+  {id:'2010', code:'2010', name:'Tips Payable', type:'liability'},
+  {id:'3000', code:'3000', name:"Owner's Equity", type:'equity'},
+  {id:'4000', code:'4000', name:'Sales Revenue', type:'revenue'},
+  {id:'4010', code:'4010', name:'Service Charge Income', type:'revenue'},
+  {id:'4900', code:'4900', name:'Discounts Given', type:'contra_revenue'},
+  {id:'5000', code:'5000', name:'Operating Expenses', type:'expense'}
+];
+let ledgerAccounts = load('posv2_ledgerAccounts', null);
+if(!ledgerAccounts){ ledgerAccounts = DEFAULT_LEDGER_ACCOUNTS.map(a=>({...a})); save('posv2_ledgerAccounts', ledgerAccounts); }
+let journal = load('posv2_journal', []);
+let exchangeRates = load('posv2_exchangeRates', []);
+let taxPeriods = load('posv2_taxPeriods', {});
+function round2(n){ return Math.round((n||0)*100)/100; }
+function accountById(id){ return ledgerAccounts.find(a=>a.id===id); }
+function nextJournalRef(){ return 'JE'+String(journal.length+1).padStart(5,'0'); }
+function postSaleJournalEntry(record){
+  const lines=[];
+  const addDebit=(accId, amt)=>{ if(amt<=0) return; const ex=lines.find(l=>l.accountId===accId && l.debit>0); if(ex) ex.debit=round2(ex.debit+amt); else lines.push({accountId:accId, debit:round2(amt), credit:0, reconciled:false}); };
+  if(record.paymentMethod==='split' && record.paymentDetail && record.paymentDetail.parts && record.paymentDetail.parts.length){
+    record.paymentDetail.parts.forEach(p=>addDebit(p.method==='cash'?'1000':'1010', Number(p.amount)||0));
+  } else {
+    addDebit(record.paymentMethod==='cash'?'1000':'1010', record.grandTotal);
+  }
+  if(record.discountAmount>0) lines.push({accountId:'4900', debit:round2(record.discountAmount), credit:0, reconciled:false});
+  if(record.subtotal>0) lines.push({accountId:'4000', debit:0, credit:round2(record.subtotal), reconciled:false});
+  if(record.tax>0) lines.push({accountId:'2000', debit:0, credit:round2(record.tax), reconciled:false});
+  if(record.serviceCharge>0) lines.push({accountId:'4010', debit:0, credit:round2(record.serviceCharge), reconciled:false});
+  if(record.tip>0) lines.push({accountId:'2010', debit:0, credit:round2(record.tip), reconciled:false});
+  journal.push({ id:uid('je'), ref:record.receiptNo, date:record.datetime, memo:'Sale — Receipt '+record.receiptNo+' (Table '+record.tableNum+')',
+    source:'sale', sourceRecordId:record.id, currency:settings.currency, fxRate:1, lines, createdBy:(currentUser?currentUser.name:'system'), createdAt:Date.now() });
+}
+function reverseSaleJournalEntry(record){
+  const original = journal.find(j=>j.source==='sale' && j.sourceRecordId===record.id);
+  if(!original) return;
+  const lines = original.lines.map(l=>({accountId:l.accountId, debit:l.credit, credit:l.debit, reconciled:false}));
+  journal.push({ id:uid('je'), ref:nextJournalRef(), date:Date.now(), memo:'Reversal — Receipt '+record.receiptNo+' voided',
+    source:'reversal', sourceRecordId:record.id, currency:settings.currency, fxRate:1, lines, createdBy:(currentUser?currentUser.name:'system'), createdAt:Date.now() });
+}
+function accountBalance(accId, upToMs){
+  const acc=accountById(accId); if(!acc) return 0;
+  let debit=0, credit=0;
+  journal.forEach(j=>{ if(upToMs && j.date>upToMs) return; j.lines.forEach(l=>{ if(l.accountId===accId){ debit+=l.debit; credit+=l.credit; } }); });
+  const natural = (acc.type==='asset'||acc.type==='expense'||acc.type==='contra_revenue') ? (debit-credit) : (credit-debit);
+  return round2(natural);
+}
+
 // migration: older saved data may have cash movements without stable ids
 (function migrateMovementIds(){
   let changed=false;
@@ -605,15 +723,91 @@ function persistAll(){
   save('posv2_tables', tables); save('posv2_activeOrders', activeOrders); save('posv2_history', history);
   save('posv2_waiterShifts', waiterShifts); save('posv2_cashierShifts', cashierShifts);
   save('posv2_handovers', handovers); save('posv2_audit', auditLog); save('posv2_session', session);
+  save('posv2_ledgerAccounts', ledgerAccounts); save('posv2_journal', journal);
+  save('posv2_exchangeRates', exchangeRates); save('posv2_taxPeriods', taxPeriods);
+  queueSupabaseSync();
 }
 
-let currentUser = session ? users.find(u=>u.id===session.userId) || null : null;
+/* ---- Supabase sync (business-scoped; RLS enforces isolation server-side) ---- */
+let supabaseSyncTimer=null;
+function queueSupabaseSync(){
+  if(!currentBusinessId) return;
+  clearTimeout(supabaseSyncTimer);
+  supabaseSyncTimer=setTimeout(doSyncToSupabase, 500);
+}
+async function syncTable(table, rows){
+  const ids = rows.map(r=>r.id);
+  try{
+    if(ids.length){
+      await sb.from(table).delete().eq('business_id', currentBusinessId).not('id','in', `(${ids.join(',')})`);
+      await sb.from(table).upsert(rows, {onConflict:'id'});
+    } else {
+      await sb.from(table).delete().eq('business_id', currentBusinessId);
+    }
+  }catch(e){ console.warn('Supabase sync failed for', table, e); }
+}
+async function doSyncToSupabase(){
+  if(!currentBusinessId) return;
+  try{
+    await sb.from('businesses').update({ name:settings.restaurantName, settings_json:settings }).eq('id', currentBusinessId);
+    await syncTable('staff_users', users.map(u=>({id:u.id, business_id:currentBusinessId, name:u.name, role:u.role, pin:u.pin, meta:u})));
+    await syncTable('restaurant_tables', tables.map(t=>({id:t.id, business_id:currentBusinessId, num:t.num, capacity:t.capacity, zone:t.zone==='outdoor'?'outdoor':'indoor', waiter_id:t.waiterId||null, meta:t})));
+    await syncTable('menu_items', menu.map(m=>({id:m.id, business_id:currentBusinessId, category:m.category||'', name:m.name, description:m.description||'', price:m.price||0, veg:!!m.veg, available:!!m.available, photo_url:m.photo||m.photoUrl||null, meta:m})));
+    const orderRows = [
+      ...activeOrders.map(o=>({id:o.id, business_id:currentBusinessId, status:'open', table_num:(tableById(o.tableId)||{}).num||null, waiter_name:o.waiterName||'', items:o.items||[], grand_total:0, meta:o})),
+      ...history.map(r=>({id:r.id, business_id:currentBusinessId, status:r.voided?'voided':'paid', table_num:r.tableNum||null, waiter_name:r.waiter||'', items:r.items||[],
+        subtotal:r.subtotal||0, discount_amount:r.discountAmount||0, tax:r.tax||0, service_charge:r.serviceCharge||0, tip:r.tip||0, grand_total:r.grandTotal||0,
+        payment_method:r.paymentMethod||null, payment_detail:r.paymentDetail||null, receipt_no:r.receiptNo||null,
+        voided:!!r.voided, voided_by:r.voidedBy||null, voided_at:r.voidedAt?new Date(r.voidedAt).toISOString():null, meta:r}))
+    ];
+    await syncTable('orders', orderRows);
+    await syncTable('shift_handovers', handovers.map(h=>({id:h.id, business_id:currentBusinessId, from_staff_id:h.waiterId||null, to_staff_id:h.confirmedBy?null:null, shift_type:'waiter', cash_amount:h.amount||0, meta:h})));
+    await syncTable('audit_log', auditLog.map(a=>({id:a.id, business_id:currentBusinessId, actor:a.user, action:a.action, target:a.ref, from_value:a.prevValue, to_value:a.newValue, meta:a})));
+  }catch(e){ console.warn('Supabase sync error', e); }
+}
+async function loadBusinessData(){
+  const { data:biz, error:bizErr } = await sb.from('businesses').select('*').eq('owner_id', authUser.id).maybeSingle();
+  if(bizErr || !biz){ throw new Error(bizErr ? bizErr.message : 'No business record found for this account.'); }
+  currentBusinessId = biz.id;
+  settings = Object.assign({}, DEFAULT_SETTINGS, biz.settings_json||{});
+  if(biz.name) settings.restaurantName = biz.name;
+
+  const [staffRes, tablesRes, menuRes, ordersRes, handoversRes, auditRes] = await Promise.all([
+    sb.from('staff_users').select('*').eq('business_id', currentBusinessId),
+    sb.from('restaurant_tables').select('*').eq('business_id', currentBusinessId),
+    sb.from('menu_items').select('*').eq('business_id', currentBusinessId),
+    sb.from('orders').select('*').eq('business_id', currentBusinessId),
+    sb.from('shift_handovers').select('*').eq('business_id', currentBusinessId),
+    sb.from('audit_log').select('*').eq('business_id', currentBusinessId)
+  ]);
+
+  const isFirstLoad = !(staffRes.data&&staffRes.data.length) && !(tablesRes.data&&tablesRes.data.length) && !(menuRes.data&&menuRes.data.length);
+
+  users = (staffRes.data&&staffRes.data.length) ? staffRes.data.map(r=>r.meta||{id:r.id,name:r.name,role:r.role,pin:r.pin}) : DEFAULT_USERS.map(u=>({...u}));
+  tables = (tablesRes.data&&tablesRes.data.length) ? tablesRes.data.map(r=>r.meta||{id:r.id,num:r.num,capacity:r.capacity,zone:r.zone,waiterId:r.waiter_id}) : null;
+  if(!tables){
+    tables=[];
+    for(let i=0;i<settings.tableCount;i++){ const num=i+1; tables.push({id:uid('t'), num, capacity:TABLE_PATTERN[i%TABLE_PATTERN.length], waiterId:(num%2===0?'u4':'u3'), zone:zoneForIndex(i,settings.tableCount)}); }
+  }
+  menu = (menuRes.data&&menuRes.data.length) ? menuRes.data.map(r=>r.meta||r) : DEFAULT_MENU.map(m=>({...m}));
+
+  activeOrders=[]; history=[];
+  (ordersRes.data||[]).forEach(r=>{ if(r.status==='open') activeOrders.push(r.meta||r); else history.push(r.meta||r); });
+  handovers = (handoversRes.data||[]).map(r=>r.meta||r);
+  auditLog = (auditRes.data||[]).map(r=>r.meta||r).sort((a,b)=>(a.at||0)-(b.at||0));
+
+  if(isFirstLoad){ queueSupabaseSync(); doSyncToSupabase(); }
+}
+
+
+let currentUser = null;
 
 /* ===================== PERMISSIONS ===================== */
 const PERMS = {
   manager: new Set(['assignWaiter','reserveTable','configureTables','manageMenu','manageUsers','manageSettings','applyDiscount','processPayment','viewAllOrders','reprintAny','confirmHandover','openCashierShift','closeCashierShift','viewAudit','reopenTransaction','viewAllBalances','recordOtherCashMovement','systemReset']),
   cashier: new Set(['assignWaiter','reserveTable','applyDiscount','processPayment','viewAllOrders','reprintAny','confirmHandover','openCashierShift','closeCashierShift','viewAllBalances','recordOtherCashMovement']),
-  waiter: new Set(['processPayment','recordHandover','openWaiterShift','closeWaiterShift','reprintOwn'])
+  waiter: new Set(['processPayment','recordHandover','openWaiterShift','closeWaiterShift','reprintOwn']),
+  accountant: new Set(['viewAllOrders','viewAudit','viewFinance','manageAccounting'])
 };
 function can(action){
   if(!currentUser) return false;
@@ -675,6 +869,76 @@ function audit(action, ref, prevValue, newValue){
 }
 function userById(id){ return users.find(u=>u.id===id); }
 function tableById(id){ return tables.find(t=>t.id===id); }
+
+/* ===================== AUTH SCREEN (Sign In / Sign Up) ===================== */
+function showAuthScreen(msg){
+  document.getElementById('authScreen').style.display='flex';
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').classList.remove('active');
+  const errEl=document.getElementById('authError');
+  if(msg){ errEl.textContent=msg; errEl.style.display='block'; } else { errEl.style.display='none'; }
+}
+function hideAuthScreen(){ document.getElementById('authScreen').style.display='none'; }
+document.querySelectorAll('.auth-tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.auth-tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    const mode=tab.dataset.auth;
+    document.getElementById('authSignIn').style.display = mode==='signin'?'block':'none';
+    document.getElementById('authSignUp').style.display = mode==='signup'?'block':'none';
+    document.getElementById('authError').style.display='none';
+    document.getElementById('authHint').style.display='none';
+  });
+});
+async function bootAfterAuth(){
+  try{
+    await loadBusinessData();
+  }catch(e){
+    showAuthScreen('Could not load your business data: '+e.message);
+    return;
+  }
+  hideAuthScreen();
+  applyTheme();
+  currentUser = session ? (users.find(u=>u.id===session.userId) || null) : null;
+  renderUserGrid();
+  renderLoginLogo();
+  renderLoginBrand();
+  updateLoginClock();
+  document.getElementById('loginScreen').style.display='flex';
+  if(currentUser){ enterApp(); }
+}
+document.getElementById('btnSignIn').addEventListener('click', async ()=>{
+  const email=document.getElementById('siEmail').value.trim();
+  const password=document.getElementById('siPassword').value;
+  if(!email || !password){ showAuthScreen('Enter your email and password.'); return; }
+  const btn=document.getElementById('btnSignIn'); btn.disabled=true; btn.textContent='Signing in…';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  btn.disabled=false; btn.textContent='Sign In';
+  if(error){ showAuthScreen(error.message); return; }
+  authUser = data.user;
+  await bootAfterAuth();
+});
+document.getElementById('btnSignUp').addEventListener('click', async ()=>{
+  const bizName=document.getElementById('suBusiness').value.trim();
+  const email=document.getElementById('suEmail').value.trim();
+  const password=document.getElementById('suPassword').value;
+  if(!bizName || !email || !password){ showAuthScreen('Fill in all fields.'); return; }
+  if(password.length<6){ showAuthScreen('Password must be at least 6 characters.'); return; }
+  const btn=document.getElementById('btnSignUp'); btn.disabled=true; btn.textContent='Creating account…';
+  const { data, error } = await sb.auth.signUp({ email, password, options:{ data:{ business_name:bizName } } });
+  btn.disabled=false; btn.textContent='Create Account';
+  if(error){ showAuthScreen(error.message); return; }
+  if(data.session){
+    authUser = data.user;
+    await bootAfterAuth();
+  } else {
+    document.getElementById('authError').style.display='none';
+    document.getElementById('authHint').style.display='block';
+  }
+});
+sb.auth.onAuthStateChange((event)=>{
+  if(event==='SIGNED_OUT'){ location.reload(); }
+});
 
 /* ===================== LOGIN ===================== */
 let loginSelectedUser=null, pinBuffer='';
@@ -793,16 +1057,17 @@ function enterApp(){
   document.getElementById('app').classList.add('active');
   renderNavTabs();
   renderTopbar();
-  switchView('floor');
+  switchView(currentUser.role==='accountant' ? 'finance' : 'floor');
 }
 
 /* ===================== TOPBAR / NAV ===================== */
 const NAV = [
   {key:'floor', label:'Floor', roles:['manager','cashier','waiter']},
-  {key:'history', label:'History', roles:['manager','cashier','waiter']},
+  {key:'history', label:'History', roles:['manager','cashier','waiter','accountant']},
   {key:'cash', label:'Cash', roles:['manager','cashier','waiter']},
-  {key:'dashboard', label:'Dashboard', roles:['manager','cashier','waiter']},
-  {key:'audit', label:'Audit', roles:['manager']},
+  {key:'dashboard', label:'Dashboard', roles:['manager','cashier','waiter','accountant']},
+  {key:'finance', label:'Accounting', roles:['accountant']},
+  {key:'audit', label:'Audit', roles:['manager','accountant']},
   {key:'settings', label:'Settings', roles:['manager']}
 ];
 function renderNavTabs(){
@@ -835,6 +1100,7 @@ function switchView(view){
   if(view==='history') renderHistory();
   if(view==='cash') renderCash();
   if(view==='dashboard') renderDashboard();
+  if(view==='finance'){ if(!requireOrToast('viewFinance')){ switchView('floor'); return; } renderFinance(); }
   if(view==='audit'){ if(!requireOrToast('viewAudit')){ switchView('floor'); return; } renderAudit(); }
   if(view==='settings'){ if(!requireOrToast('manageSettings')){ switchView('floor'); return; } renderSettings(); }
 }
@@ -1326,6 +1592,7 @@ document.getElementById('btnConfirmPay').addEventListener('click', ()=>{
     paymentMethod:payMethod, paymentDetail, datetime:Date.now(), voided:false
   };
   history.push(record);
+  postSaleJournalEntry(record);
   audit('Payment recorded', record.receiptNo, '', payMethod+' '+fmt(totals.grandTotal));
 
   // waiter cash accountability
@@ -1467,6 +1734,7 @@ function confirmReopen(recordId){
 function doReopen(record, manager){
   record.voided=true; record.voidedBy=manager.name; record.voidedAt=Date.now();
   audit('Order reopened (voided original)', record.receiptNo, 'completed', 'voided — authorized by '+manager.name);
+  reverseSaleJournalEntry(record);
   let t = tables.find(t2=>t2.num===record.tableNum);
   if(!t){ showToast('Original table no longer exists.'); persistAll(); renderHistory(); return; }
   const order={ id:uid('o'), tableId:t.id, waiterId:t.waiterId||null, waiterName:record.waiter||'',
@@ -1843,6 +2111,370 @@ function renderDashboard(){
   `;
 }
 
+/* ===================== ACCOUNTING MODULE ===================== */
+let currentAcctTab='overview';
+function financeDateRange(){
+  const from=document.getElementById('fFrom'), to=document.getElementById('fTo');
+  return { from: from&&from.value?from.value:null, to: to&&to.value?to.value:null };
+}
+function financeFilteredRows(){
+  const {from,to}=financeDateRange();
+  let rows=history.filter(r=>!r.voided);
+  if(from){ const start=new Date(from+'T00:00:00').getTime(); rows=rows.filter(r=>new Date(r.datetime).getTime()>=start); }
+  if(to){ const end=new Date(to+'T23:59:59').getTime(); rows=rows.filter(r=>new Date(r.datetime).getTime()<=end); }
+  return rows.slice().sort((a,b)=>new Date(a.datetime)-new Date(b.datetime));
+}
+function journalInRange(fromStr, toStr){
+  let rows=journal.slice();
+  if(fromStr){ const start=new Date(fromStr+'T00:00:00').getTime(); rows=rows.filter(j=>j.date>=start); }
+  if(toStr){ const end=new Date(toStr+'T23:59:59').getTime(); rows=rows.filter(j=>j.date<=end); }
+  return rows.sort((a,b)=>a.date-b.date);
+}
+function renderFinance(){
+  document.querySelectorAll('#acctTabs .zone-tab').forEach(b=>b.classList.toggle('active', b.dataset.acct===currentAcctTab));
+  renderAcctBody();
+}
+document.getElementById('acctTabs').addEventListener('click', (e)=>{
+  const btn=e.target.closest('.zone-tab'); if(!btn) return;
+  currentAcctTab=btn.dataset.acct; renderFinance();
+});
+function renderAcctBody(){
+  const body=document.getElementById('acctBody');
+  if(currentAcctTab==='overview') return renderAcctOverview(body);
+  if(currentAcctTab==='journal') return renderAcctJournal(body);
+  if(currentAcctTab==='pl') return renderAcctPL(body);
+  if(currentAcctTab==='bs') return renderAcctBS(body);
+  if(currentAcctTab==='recon') return renderAcctRecon(body);
+  if(currentAcctTab==='tax') return renderAcctTax(body);
+  if(currentAcctTab==='fx') return renderAcctFx(body);
+}
+function dateFilterRowHtml(fromId, toId, defaultFrom, defaultTo){
+  return `<div class="filters-row">
+    <div class="form-field" style="flex-direction:row; align-items:center; gap:6px;"><label style="text-transform:none; font-size:11.5px; color:var(--slate);">From</label><input class="filter-input" id="${fromId}" type="date" value="${defaultFrom}"></div>
+    <div class="form-field" style="flex-direction:row; align-items:center; gap:6px;"><label style="text-transform:none; font-size:11.5px; color:var(--slate);">To</label><input class="filter-input" id="${toId}" type="date" value="${defaultTo}"></div>
+  </div>`;
+}
+function monthStartEnd(){
+  const today=new Date(); const first=new Date(today.getFullYear(), today.getMonth(), 1);
+  return { from:first.toISOString().slice(0,10), to:today.toISOString().slice(0,10) };
+}
+
+/* ---- Overview ---- */
+function renderAcctOverview(body){
+  const {from,to}=monthStartEnd();
+  body.innerHTML = dateFilterRowHtml('fFrom','fTo',from,to) + `<div style="text-align:right; margin-bottom:10px;"><button class="btn btn-outline-dark" id="btnExportFinance" style="width:auto; padding:8px 14px;">Export CSV</button></div><div id="overviewStats"></div>`;
+  ['fFrom','fTo'].forEach(id=>document.getElementById(id).addEventListener('input', ()=>renderAcctOverviewStats()));
+  document.getElementById('btnExportFinance').addEventListener('click', exportFinanceCsv);
+  renderAcctOverviewStats();
+}
+function renderAcctOverviewStats(){
+  const el=document.getElementById('overviewStats'); if(!el) return;
+  const rows=financeFilteredRows();
+  if(rows.length===0){ el.innerHTML='<div class="empty-note">No transactions in this date range.</div>'; return; }
+  const grossSales=rows.reduce((s,r)=>s+r.subtotal,0);
+  const discounts=rows.reduce((s,r)=>s+r.discountAmount,0);
+  const netSales=grossSales-discounts;
+  const tax=rows.reduce((s,r)=>s+r.tax,0);
+  const sc=rows.reduce((s,r)=>s+r.serviceCharge,0);
+  const tips=rows.reduce((s,r)=>s+r.tip,0);
+  const totalCollected=rows.reduce((s,r)=>s+r.grandTotal,0);
+  const byMethod={cash:0,card:0,upi:0,split:0};
+  rows.forEach(r=>{ byMethod[r.paymentMethod]=(byMethod[r.paymentMethod]||0)+r.grandTotal; });
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-box"><div class="l">Gross Sales</div><div class="v">${fmt(grossSales)}</div></div>
+      <div class="stat-box"><div class="l">Discounts</div><div class="v">${fmt(discounts)}</div></div>
+      <div class="stat-box good"><div class="l">Net Sales</div><div class="v">${fmt(netSales)}</div></div>
+      <div class="stat-box"><div class="l">Tax Collected</div><div class="v">${fmt(tax)}</div></div>
+      <div class="stat-box"><div class="l">Service Charges</div><div class="v">${fmt(sc)}</div></div>
+      <div class="stat-box"><div class="l">Tips</div><div class="v">${fmt(tips)}</div></div>
+      <div class="stat-box amber"><div class="l">Total Collected</div><div class="v">${fmt(totalCollected)}</div></div>
+      <div class="stat-box"><div class="l">Transactions</div><div class="v">${rows.length}</div></div>
+    </div>
+    <div class="section-title">Collected by Payment Method</div>
+    ${Object.entries(byMethod).map(([k,v])=>`<div class="pm-bar-row"><div class="pm-bar-label">${k}</div><div class="pm-bar-track"><div class="pm-bar-fill" style="width:${(v/Math.max(1,totalCollected)*100)}%;"></div></div><div class="pm-bar-val">${fmt(v)}</div></div>`).join('')}
+  `;
+}
+function exportFinanceCsv(){
+  const rows=financeFilteredRows();
+  if(rows.length===0){ showToast('No transactions to export in this range.'); return; }
+  const headers=['Date','Receipt #','Table','Waiter','Subtotal','Discount','Tax','Service Charge','Tip','Grand Total','Payment Method'];
+  const csvRows=[headers.join(',')];
+  rows.forEach(r=>{
+    const line=[
+      new Date(r.datetime).toISOString(),
+      r.receiptNo!==undefined?r.receiptNo:'',
+      r.tableNum!==undefined?('T'+r.tableNum):'',
+      r.waiter||'',
+      r.subtotal.toFixed(2), r.discountAmount.toFixed(2), r.tax.toFixed(2), r.serviceCharge.toFixed(2), r.tip.toFixed(2), r.grandTotal.toFixed(2),
+      r.paymentMethod||''
+    ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
+    csvRows.push(line);
+  });
+  const blob=new Blob([csvRows.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='finance-export-'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  audit('Finance export','finance','','CSV exported');
+}
+
+/* ---- Journal Entries ---- */
+function renderAcctJournal(body){
+  const {from,to}=monthStartEnd();
+  body.innerHTML = dateFilterRowHtml('jFrom','jTo',from,to) + `<div style="text-align:right; margin-bottom:10px;"><button class="btn btn-amber" id="btnAddJE" style="width:auto; padding:8px 14px;">+ New Journal Entry</button></div><div id="journalTableWrap"></div>`;
+  ['jFrom','jTo'].forEach(id=>document.getElementById(id).addEventListener('input', renderJournalTable));
+  document.getElementById('btnAddJE').addEventListener('click', openJournalEntryForm);
+  renderJournalTable();
+}
+function renderJournalTable(){
+  const wrap=document.getElementById('journalTableWrap'); if(!wrap) return;
+  const from=document.getElementById('jFrom').value, to=document.getElementById('jTo').value;
+  const rows=journalInRange(from,to);
+  if(rows.length===0){ wrap.innerHTML='<div class="empty-note">No journal entries in this range.</div>'; return; }
+  let html='<table class="data-table"><thead><tr><th>Date</th><th>Ref</th><th>Source</th><th>Memo</th><th>Account</th><th>Debit</th><th>Credit</th></tr></thead><tbody>';
+  rows.forEach(j=>{
+    j.lines.forEach((l,idx)=>{
+      const acc=accountById(l.accountId);
+      html+=`<tr>${idx===0?`<td rowspan="${j.lines.length}">${new Date(j.date).toLocaleDateString()}</td><td rowspan="${j.lines.length}">${escapeHtml(j.ref||'')}</td><td rowspan="${j.lines.length}">${j.source}</td><td rowspan="${j.lines.length}">${escapeHtml(j.memo||'')}</td>`:''}<td>${acc?escapeHtml(acc.code+' '+acc.name):'—'}</td><td>${l.debit>0?fmt(l.debit):''}</td><td>${l.credit>0?fmt(l.credit):''}</td></tr>`;
+    });
+  });
+  html+='</tbody></table>';
+  wrap.innerHTML=html;
+}
+function openJournalEntryForm(){
+  let lineCount=2;
+  const accOptions=(sel)=>ledgerAccounts.map(a=>`<option value="${a.id}" ${a.id===sel?'selected':''}>${escapeHtml(a.code+' '+a.name)}</option>`).join('');
+  const lineHtml=(i)=>`<div class="form-grid" data-je-line="${i}" style="grid-template-columns:2fr 1fr 1fr; gap:8px; margin-bottom:6px;">
+      <select class="je-acc">${accOptions()}</select>
+      <input class="je-debit" type="number" step="0.01" placeholder="Debit" min="0">
+      <input class="je-credit" type="number" step="0.01" placeholder="Credit" min="0">
+    </div>`;
+  const bodyHtml = `
+    <div class="form-field full"><label>Date</label><input id="jeDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+    <div class="form-field full"><label>Memo</label><input id="jeMemo" placeholder="e.g. Monthly rent, equipment purchase..."></div>
+    <div id="jeLines">${lineHtml(0)}${lineHtml(1)}</div>
+    <button type="button" class="small-btn" id="jeAddLine" style="margin-top:4px;">+ Add Line</button>
+    <div class="hint" id="jeBalanceHint" style="margin-top:10px;">Debits and credits must balance.</div>
+  `;
+  openGeneric('New Manual Journal Entry', bodyHtml, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Post Entry', variant:'btn-amber', handler:()=>{
+      const date=new Date(document.getElementById('jeDate').value+'T12:00:00').getTime();
+      const memo=document.getElementById('jeMemo').value.trim();
+      const lineEls=document.querySelectorAll('#jeLines [data-je-line]');
+      const lines=[];
+      lineEls.forEach(le=>{
+        const accountId=le.querySelector('.je-acc').value;
+        const debit=round2(Number(le.querySelector('.je-debit').value)||0);
+        const credit=round2(Number(le.querySelector('.je-credit').value)||0);
+        if(debit>0||credit>0) lines.push({accountId, debit, credit, reconciled:false});
+      });
+      const totalDebit=round2(lines.reduce((s,l)=>s+l.debit,0));
+      const totalCredit=round2(lines.reduce((s,l)=>s+l.credit,0));
+      if(lines.length<2 || Math.abs(totalDebit-totalCredit)>0.01){ showToast('Entry must have at least 2 lines and debits must equal credits.'); return; }
+      journal.push({ id:uid('je'), ref:nextJournalRef(), date, memo, source:'manual', sourceRecordId:null, currency:settings.currency, fxRate:1, lines, createdBy:currentUser.name, createdAt:Date.now() });
+      audit('Manual journal entry posted', 'journal', '', memo||'(no memo)');
+      persistAll(); closeGeneric(); renderJournalTable();
+      showToast('Journal entry posted.');
+    }}
+  ]);
+  document.getElementById('jeAddLine').onclick=()=>{
+    document.getElementById('jeLines').insertAdjacentHTML('beforeend', lineHtml(lineCount)); lineCount++;
+  };
+}
+
+/* ---- Profit & Loss ---- */
+function renderAcctPL(body){
+  const {from,to}=monthStartEnd();
+  body.innerHTML = dateFilterRowHtml('pFrom','pTo',from,to) + `<div id="plBody"></div>`;
+  ['pFrom','pTo'].forEach(id=>document.getElementById(id).addEventListener('input', renderPLBody));
+  renderPLBody();
+}
+function renderPLBody(){
+  const el=document.getElementById('plBody'); if(!el) return;
+  const from=document.getElementById('pFrom').value, to=document.getElementById('pTo').value;
+  const rows=journalInRange(from,to);
+  const sums={};
+  ledgerAccounts.forEach(a=>sums[a.id]=0);
+  rows.forEach(j=>j.lines.forEach(l=>{
+    const acc=accountById(l.accountId); if(!acc) return;
+    const natural=(acc.type==='expense'||acc.type==='contra_revenue')?(l.debit-l.credit):(l.credit-l.debit);
+    sums[l.accountId]=(sums[l.accountId]||0)+natural;
+  }));
+  const revenueAccs=ledgerAccounts.filter(a=>a.type==='revenue');
+  const contraAccs=ledgerAccounts.filter(a=>a.type==='contra_revenue');
+  const expenseAccs=ledgerAccounts.filter(a=>a.type==='expense');
+  const grossRevenue=revenueAccs.reduce((s,a)=>s+round2(sums[a.id]),0);
+  const contraTotal=contraAccs.reduce((s,a)=>s+round2(sums[a.id]),0);
+  const netRevenue=grossRevenue-contraTotal;
+  const totalExpenses=expenseAccs.reduce((s,a)=>s+round2(sums[a.id]),0);
+  const netIncome=netRevenue-totalExpenses;
+  el.innerHTML = `
+    <div class="section-title" style="margin-top:0;">Revenue</div>
+    <table class="data-table"><tbody>
+      ${revenueAccs.map(a=>`<tr><td>${escapeHtml(a.name)}</td><td style="text-align:right;">${fmt(round2(sums[a.id]))}</td></tr>`).join('')}
+      ${contraAccs.map(a=>`<tr><td>Less: ${escapeHtml(a.name)}</td><td style="text-align:right; color:var(--rust);">(${fmt(round2(sums[a.id]))})</td></tr>`).join('')}
+      <tr style="border-top:1px solid rgba(255,255,255,0.15);"><td><b>Net Revenue</b></td><td style="text-align:right;"><b>${fmt(netRevenue)}</b></td></tr>
+    </tbody></table>
+    <div class="section-title">Operating Expenses</div>
+    <table class="data-table"><tbody>
+      ${expenseAccs.map(a=>`<tr><td>${escapeHtml(a.name)}</td><td style="text-align:right;">${fmt(round2(sums[a.id]))}</td></tr>`).join('')}
+      <tr style="border-top:1px solid rgba(255,255,255,0.15);"><td><b>Total Expenses</b></td><td style="text-align:right;"><b>${fmt(totalExpenses)}</b></td></tr>
+    </tbody></table>
+    <div class="stat-grid" style="margin-top:16px;">
+      <div class="stat-box ${netIncome>=0?'good':'warn'}"><div class="l">Net Income</div><div class="v">${fmt(netIncome)}</div></div>
+    </div>
+    <p class="hint" style="margin-top:10px;">Simplified management P&amp;L generated from posted journal entries — not a substitute for a licensed accountant's statutory filing.</p>
+  `;
+}
+
+/* ---- Balance Sheet ---- */
+function renderAcctBS(body){
+  body.innerHTML = `<div class="filters-row"><div class="form-field" style="flex-direction:row; align-items:center; gap:6px;"><label style="text-transform:none; font-size:11.5px; color:var(--slate);">As of</label><input class="filter-input" id="bsAsOf" type="date" value="${new Date().toISOString().slice(0,10)}"></div></div><div id="bsBody"></div>`;
+  document.getElementById('bsAsOf').addEventListener('input', renderBSBody);
+  renderBSBody();
+}
+function renderBSBody(){
+  const el=document.getElementById('bsBody'); if(!el) return;
+  const asOf=document.getElementById('bsAsOf').value;
+  const upToMs = asOf ? new Date(asOf+'T23:59:59').getTime() : null;
+  const assetAccs=ledgerAccounts.filter(a=>a.type==='asset');
+  const liabAccs=ledgerAccounts.filter(a=>a.type==='liability');
+  const equityAccs=ledgerAccounts.filter(a=>a.type==='equity');
+  const revenueAccs=ledgerAccounts.filter(a=>a.type==='revenue');
+  const contraAccs=ledgerAccounts.filter(a=>a.type==='contra_revenue');
+  const expenseAccs=ledgerAccounts.filter(a=>a.type==='expense');
+  const totalAssets=assetAccs.reduce((s,a)=>s+accountBalance(a.id, upToMs),0);
+  const totalLiab=liabAccs.reduce((s,a)=>s+accountBalance(a.id, upToMs),0);
+  const baseEquity=equityAccs.reduce((s,a)=>s+accountBalance(a.id, upToMs),0);
+  const netIncomeToDate = revenueAccs.reduce((s,a)=>s+accountBalance(a.id, upToMs),0) - contraAccs.reduce((s,a)=>s+accountBalance(a.id, upToMs),0) - expenseAccs.reduce((s,a)=>s+accountBalance(a.id, upToMs),0);
+  const totalEquity=baseEquity+netIncomeToDate;
+  el.innerHTML = `
+    <div class="section-title" style="margin-top:0;">Assets</div>
+    <table class="data-table"><tbody>
+      ${assetAccs.map(a=>`<tr><td>${escapeHtml(a.name)}</td><td style="text-align:right;">${fmt(accountBalance(a.id,upToMs))}</td></tr>`).join('')}
+      <tr style="border-top:1px solid rgba(255,255,255,0.15);"><td><b>Total Assets</b></td><td style="text-align:right;"><b>${fmt(totalAssets)}</b></td></tr>
+    </tbody></table>
+    <div class="section-title">Liabilities</div>
+    <table class="data-table"><tbody>
+      ${liabAccs.map(a=>`<tr><td>${escapeHtml(a.name)}</td><td style="text-align:right;">${fmt(accountBalance(a.id,upToMs))}</td></tr>`).join('')}
+      <tr style="border-top:1px solid rgba(255,255,255,0.15);"><td><b>Total Liabilities</b></td><td style="text-align:right;"><b>${fmt(totalLiab)}</b></td></tr>
+    </tbody></table>
+    <div class="section-title">Equity</div>
+    <table class="data-table"><tbody>
+      ${equityAccs.map(a=>`<tr><td>${escapeHtml(a.name)}</td><td style="text-align:right;">${fmt(accountBalance(a.id,upToMs))}</td></tr>`).join('')}
+      <tr><td>Retained Earnings (Net Income to Date)</td><td style="text-align:right;">${fmt(round2(netIncomeToDate))}</td></tr>
+      <tr style="border-top:1px solid rgba(255,255,255,0.15);"><td><b>Total Equity</b></td><td style="text-align:right;"><b>${fmt(round2(totalEquity))}</b></td></tr>
+    </tbody></table>
+    <div class="stat-grid" style="margin-top:16px;">
+      <div class="stat-box ${Math.abs(totalAssets-(totalLiab+totalEquity))<0.01?'good':'warn'}"><div class="l">Assets vs Liabilities + Equity</div><div class="v">${fmt(totalAssets)} / ${fmt(round2(totalLiab+totalEquity))}</div></div>
+    </div>
+    <p class="hint" style="margin-top:10px;">Simplified balance sheet computed from account balances since inception — for internal review.</p>
+  `;
+}
+
+/* ---- Bank Reconciliation ---- */
+function renderAcctRecon(body){
+  body.innerHTML = `
+    <div class="form-field full" style="max-width:280px; margin-bottom:12px;"><label>Bank Statement Ending Balance</label><input id="reconStmtBalance" type="number" step="0.01" placeholder="0.00"></div>
+    <div id="reconStats"></div>
+    <div class="section-title">Bank Account Lines</div>
+    <div id="reconTableWrap"></div>
+  `;
+  document.getElementById('reconStmtBalance').addEventListener('input', renderReconBody);
+  renderReconBody();
+}
+function bankJournalLines(){
+  const out=[];
+  journal.slice().sort((a,b)=>a.date-b.date).forEach(j=>{
+    j.lines.forEach((l,idx)=>{ if(l.accountId==='1010'){ out.push({je:j, line:l, idx}); } });
+  });
+  return out;
+}
+function renderReconBody(){
+  const wrap=document.getElementById('reconTableWrap'); const stats=document.getElementById('reconStats'); if(!wrap) return;
+  const lines=bankJournalLines();
+  const bookBalance=accountBalance('1010', null);
+  const clearedBalance=round2(lines.filter(x=>x.line.reconciled).reduce((s,x)=>s+x.line.debit-x.line.credit,0));
+  const stmt=Number(document.getElementById('reconStmtBalance').value)||0;
+  const variance=round2(stmt-clearedBalance);
+  stats.innerHTML = `<div class="stat-grid">
+    <div class="stat-box"><div class="l">Book Balance (Bank Account)</div><div class="v">${fmt(bookBalance)}</div></div>
+    <div class="stat-box amber"><div class="l">Cleared / Reconciled</div><div class="v">${fmt(clearedBalance)}</div></div>
+    <div class="stat-box ${Math.abs(variance)<0.01?'good':'warn'}"><div class="l">Variance vs Statement</div><div class="v">${fmt(variance)}</div></div>
+  </div>`;
+  if(lines.length===0){ wrap.innerHTML='<div class="empty-note">No bank account transactions yet.</div>'; return; }
+  wrap.innerHTML = `<table class="data-table"><thead><tr><th>Date</th><th>Ref</th><th>Memo</th><th>Debit</th><th>Credit</th><th>Reconciled</th></tr></thead><tbody>
+    ${lines.map((x,i)=>`<tr><td>${new Date(x.je.date).toLocaleDateString()}</td><td>${escapeHtml(x.je.ref||'')}</td><td>${escapeHtml(x.je.memo||'')}</td><td>${x.line.debit>0?fmt(x.line.debit):''}</td><td>${x.line.credit>0?fmt(x.line.credit):''}</td><td><input type="checkbox" data-recon-idx="${i}" ${x.line.reconciled?'checked':''}></td></tr>`).join('')}
+  </tbody></table>`;
+  wrap.querySelectorAll('[data-recon-idx]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const x=lines[Number(cb.dataset.reconIdx)];
+      x.line.reconciled=cb.checked;
+      persistAll(); renderReconBody();
+    });
+  });
+}
+
+/* ---- Tax Filings ---- */
+function renderAcctTax(body){
+  const months=[...new Set(history.filter(r=>!r.voided).map(r=>{ const d=new Date(r.datetime); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }))].sort().reverse();
+  if(months.length===0){ body.innerHTML='<div class="empty-note">No sales recorded yet.</div>'; return; }
+  const rowsHtml = months.map(m=>{
+    const [y,mo]=m.split('-');
+    const taxCollected = history.filter(r=>!r.voided && new Date(r.datetime).getFullYear()===Number(y) && (new Date(r.datetime).getMonth()+1)===Number(mo)).reduce((s,r)=>s+r.tax,0);
+    const filed = taxPeriods[m];
+    return `<tr><td>${new Date(Number(y),Number(mo)-1,1).toLocaleDateString(undefined,{month:'long',year:'numeric'})}</td><td>${fmt(taxCollected)}</td><td>${filed?`Filed ${new Date(filed.filedAt).toLocaleDateString()} by ${escapeHtml(filed.filedBy)}`:'Not filed'}</td><td>${filed?'':`<button class="small-btn" data-file-period="${m}">Mark as Filed</button>`}</td></tr>`;
+  }).join('');
+  body.innerHTML = `<table class="data-table"><thead><tr><th>Period</th><th>Tax Collected</th><th>Status</th><th></th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
+  body.querySelectorAll('[data-file-period]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const period=btn.dataset.filePeriod;
+      taxPeriods[period]={filed:true, filedAt:Date.now(), filedBy:currentUser.name};
+      audit('Tax period marked filed', period, '', 'filed by '+currentUser.name);
+      persistAll(); renderAcctTax(document.getElementById('acctBody'));
+      showToast('Marked '+period+' as filed.');
+    });
+  });
+}
+
+/* ---- Multi-currency ---- */
+function renderAcctFx(body){
+  body.innerHTML = `
+    <p class="hint" style="margin-bottom:12px;">Base currency is ${escapeHtml(settings.currency)} (from Settings). Add reference exchange rates for recording foreign-currency transactions or expenses in manual journal entries.</p>
+    <div class="form-grid" style="grid-template-columns:1fr 1fr auto; gap:8px; align-items:end; max-width:460px; margin-bottom:16px;">
+      <div class="form-field"><label>Currency Code</label><input id="fxCode" placeholder="e.g. EUR"></div>
+      <div class="form-field"><label>Rate to ${escapeHtml(settings.currency)}</label><input id="fxRate" type="number" step="0.0001" placeholder="1.0000"></div>
+      <button class="btn btn-amber" id="btnAddFx" style="width:auto; padding:10px 16px;">Add</button>
+    </div>
+    <div id="fxTableWrap"></div>
+  `;
+  document.getElementById('btnAddFx').addEventListener('click', ()=>{
+    const code=document.getElementById('fxCode').value.trim().toUpperCase();
+    const rate=Number(document.getElementById('fxRate').value);
+    if(!code || !rate || rate<=0){ showToast('Enter a currency code and a positive rate.'); return; }
+    const existing=exchangeRates.find(x=>x.code===code);
+    if(existing){ existing.rate=rate; existing.updatedAt=Date.now(); }
+    else exchangeRates.push({id:uid('fx'), code, rate, updatedAt:Date.now()});
+    audit('Exchange rate updated', code, '', String(rate));
+    persistAll(); renderAcctFx(document.getElementById('acctBody'));
+    showToast('Exchange rate saved.');
+  });
+  renderFxTable();
+}
+function renderFxTable(){
+  const wrap=document.getElementById('fxTableWrap'); if(!wrap) return;
+  if(exchangeRates.length===0){ wrap.innerHTML='<div class="empty-note">No exchange rates added yet.</div>'; return; }
+  wrap.innerHTML = `<table class="data-table"><thead><tr><th>Currency</th><th>Rate to ${escapeHtml(settings.currency)}</th><th>Updated</th><th></th></tr></thead><tbody>
+    ${exchangeRates.map(x=>`<tr><td>${escapeHtml(x.code)}</td><td>${x.rate}</td><td>${new Date(x.updatedAt).toLocaleDateString()}</td><td><button class="small-btn danger" data-del-fx="${x.id}">Delete</button></td></tr>`).join('')}
+  </tbody></table>`;
+  wrap.querySelectorAll('[data-del-fx]').forEach(b=>b.addEventListener('click', ()=>{
+    exchangeRates=exchangeRates.filter(x=>x.id!==b.dataset.delFx);
+    persistAll(); renderFxTable();
+  }));
+}
 /* ===================== AUDIT ===================== */
 function renderAudit(){
   const filters=document.getElementById('auditFilters');
@@ -1876,6 +2508,11 @@ function renderAuditTable(){
 function renderSettings(){
   const body=document.getElementById('settingsBody');
   body.innerHTML = `
+    <div class="shift-card">
+      <div class="section-title" style="margin-top:0;">Business Account</div>
+      <p class="hint">Signed in as ${escapeHtml(authUser?authUser.email:'')}</p>
+      <button class="btn btn-outline-dark" id="btnSignOutAccount" style="width:auto; padding:9px 18px; margin-top:8px;">Sign Out of Business Account</button>
+    </div>
     <div class="shift-card">
       <div class="section-title" style="margin-top:0;">Restaurant Info</div>
       <div class="form-grid">
@@ -1935,6 +2572,10 @@ function renderSettings(){
       <button class="btn btn-outline" id="btnSystemReset" style="margin-top:12px; width:260px; border-color:var(--rust); color:var(--rust);">Reset Shift / Clear History</button>
     </div>` : ''}
   `;
+  document.getElementById('btnSignOutAccount').onclick=async ()=>{
+    if(!confirm('Sign out of this business account? You will need to sign in again to access the data.')) return;
+    await sb.auth.signOut();
+  };
   document.querySelectorAll('.theme-swatch').forEach(sw=>{
     sw.onclick=()=>{
       settings.themeColor=sw.dataset.theme;
@@ -2046,6 +2687,7 @@ function openUserForm(u){
     <div class="form-field"><label>Role</label><select id="ufRole">
       <option value="waiter" ${editing&&u.role==='waiter'?'selected':''}>Waiter</option>
       <option value="cashier" ${editing&&u.role==='cashier'?'selected':''}>Cashier</option>
+      <option value="accountant" ${editing&&u.role==='accountant'?'selected':''}>Accountant</option>
       <option value="manager" ${editing&&u.role==='manager'?'selected':''}>Manager</option>
     </select></div>
     <div class="form-field"><label>4-digit PIN</label><input id="ufPin" maxlength="4" value="${editing?u.pin:''}"></div>
@@ -2150,12 +2792,19 @@ document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',
 document.querySelectorAll('.modal-overlay').forEach(ov=>ov.addEventListener('click', (e)=>{ if(e.target===ov) ov.classList.remove('open'); }));
 
 /* ===================== INIT ===================== */
-applyTheme();
-renderUserGrid();
-renderLoginLogo();
-renderLoginBrand();
-updateLoginClock();
-if(currentUser){ enterApp(); }
+(async function initAuth(){
+  showAuthScreen();
+  try{
+    const { data } = await sb.auth.getSession();
+    if(data && data.session){
+      authUser = data.session.user;
+      await bootAfterAuth();
+    }
+  }catch(e){
+    showAuthScreen('Connection to the account server failed. Check your internet connection and reload.');
+    console.warn('Supabase init error', e);
+  }
+})();
 })();
 </script>
 </body>
