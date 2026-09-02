@@ -233,7 +233,7 @@ main{ flex:1; overflow:hidden; position:relative; }
 .item-card.unavailable .item-photo-placeholder{ opacity:.55; }
 .item-card.unavailable .item-content{ opacity:.55; }
 .item-photo{ width:100%; height:100%; border-radius:6px; overflow:hidden; background:var(--charcoal-3); }
-.item-card .item-photo{ flex:1 1 auto; min-height:0; border-radius:0; }
+.item-card .item-photo{ flex:1 1 auto; min-height:0; border-radius:0; position:relative; }
 .item-photo img{ width:100%; height:100%; object-fit:cover; display:block; }
 .item-photo-placeholder{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-size:17px; font-weight:700; color:var(--slate-dim);
   background-image:repeating-linear-gradient(135deg, var(--charcoal-3), var(--charcoal-3) 8px, var(--charcoal-4) 8px, var(--charcoal-4) 16px); }
@@ -244,6 +244,10 @@ main{ flex:1; overflow:hidden; position:relative; }
 .veg-badge.nonveg{ border-color:var(--rust); }
 .veg-badge.nonveg .d{ background:var(--rust); border-radius:0; clip-path:polygon(50% 0,100% 100%,0 100%); width:8px; height:8px; }
 .unavail-chip{ position:absolute; top:8px; left:8px; z-index:2; background:rgba(194,84,57,0.92); color:#fff; font-size:8.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:3px 7px; border-radius:4px; }
+.stock-badge{ position:absolute; bottom:8px; left:8px; z-index:2; font-size:8.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:3px 7px; border-radius:4px; }
+.stock-badge.ok{ background:rgba(74,138,99,0.85); color:#fff; }
+.stock-badge.low{ background:rgba(217,164,65,0.92); color:#2a1f08; }
+.stock-badge.out{ background:rgba(194,84,57,0.92); color:#fff; }
 .item-name{ font-size:12.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .item-desc{ font-size:9.5px; color:var(--slate); line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .item-price{ font-family:var(--font-mono); font-size:13.5px; color:var(--amber); font-weight:700; margin-top:2px; }
@@ -252,6 +256,9 @@ main{ flex:1; overflow:hidden; position:relative; }
 .side-scroll{ flex:1; overflow-y:auto; padding:20px 20px 8px; }
 .side-empty{ color:#a39c86; font-size:13px; font-style:italic; padding:16px 0; text-align:center; }
 .side-sub{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#7a7566; margin-bottom:10px; }
+.lock-chip{ display:inline-block; margin-left:6px; background:rgba(217,164,65,0.16); color:var(--amber); font-size:9px; letter-spacing:.03em; padding:2px 7px; border-radius:8px; text-transform:none; cursor:help; }
+.li-lock-icon{ font-size:10px; opacity:.75; cursor:help; }
+.line-item.li-locked{ opacity:.92; }
 .line-item{ padding:9px 0; border-bottom:1px solid #e7e0cd; }
 .li-top{ display:flex; align-items:center; gap:8px; }
 .li-name{ flex:1; font-size:13px; font-weight:600; }
@@ -259,6 +266,7 @@ main{ flex:1; overflow:hidden; position:relative; }
 .li-mid{ display:flex; align-items:center; justify-content:space-between; margin-top:6px; }
 .qty-ctl{ display:flex; align-items:center; gap:7px; }
 .qty-ctl button{ width:21px; height:21px; border-radius:4px; border:1px solid #cfc7ae; background:#fff; font-size:13px; }
+.qty-ctl button:disabled{ opacity:.35; cursor:not-allowed; }
 .qty-ctl span{ font-family:var(--font-mono); font-size:12px; min-width:14px; text-align:center; }
 .li-price{ font-family:var(--font-mono); font-size:12.5px; color:#5b584f; }
 .li-note{ width:100%; margin-top:6px; border:1px dashed #cfc7ae; background:#fbf9f3; border-radius:4px; padding:6px 8px; font-size:11px; color:#5b584f; }
@@ -298,6 +306,8 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
 .small-btn{ background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.1); color:var(--amber); font-size:10.5px; padding:5px 9px; border-radius:5px; font-weight:600; margin-right:4px; }
 .small-btn:hover{ background:rgba(217,164,65,0.14); }
 .small-btn.danger{ color:var(--rust); }
+.text-warn{ color:var(--rust); font-weight:700; }
+.text-good{ color:var(--sage); font-weight:700; }
 .empty-note{ color:var(--slate); font-size:13px; padding:34px 0; text-align:center; }
 .filters-row{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
 .filter-select,.filter-input{ background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.1); color:var(--white); padding:7px 10px; border-radius:6px; font-size:12px; }
@@ -332,6 +342,7 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
 .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .form-field{ display:flex; flex-direction:column; gap:5px; }
 .form-field.full{ grid-column:1/-1; }
+.full{ grid-column:1/-1; }
 .form-field label{ font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--slate-dim); }
 .form-field input,.form-field select{ background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.1); color:var(--white); padding:9px 10px; border-radius:5px; font-size:13px; }
 .form-field.check{ flex-direction:row; align-items:center; gap:8px; }
@@ -514,6 +525,16 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
       <div id="dashBody"></div>
     </div></div>
 
+    <div class="view" id="view-inventory"><div class="pad">
+      <div class="head-row"><h2>Inventory</h2><button class="btn btn-amber" id="btnManualAdjust" style="width:auto; padding:8px 14px;">Manual Adjustment</button></div>
+      <div class="zone-tabs" id="invTabs">
+        <button class="zone-tab active" data-inv="usage">Stock Sales &amp; Usage</button>
+        <button class="zone-tab" data-inv="ingredients">Ingredients</button>
+        <button class="zone-tab" data-inv="items">Stocked Menu Items</button>
+      </div>
+      <div id="invBody"></div>
+    </div></div>
+
     <div class="view" id="view-finance"><div class="pad">
       <div class="head-row"><h2>Accounting</h2></div>
       <div class="zone-tabs" id="acctTabs">
@@ -608,7 +629,7 @@ const DEFAULT_USERS = [
 ];
 const DEFAULT_MENU = [
   {id:"m1",category:"Sambusa & Starters",name:"Meat Sambusa",description:"Crisp pastry, spiced minced beef, onion",price:5.5,veg:false,available:true},
-  {id:"m2",category:"Sambusa & Starters",name:"Lentil Sambusa",description:"Crisp pastry, spiced red lentil filling",price:5.0,veg:true,available:true},
+  {id:"m2",category:"Sambusa & Starters",name:"Lentil Sambusa",description:"Crisp pastry, spiced red lentil filling",price:5.0,veg:true,available:true,recipe:[{ingredientId:'ing1',qty:40},{ingredientId:'ing2',qty:15}]},
   {id:"m3",category:"Sambusa & Starters",name:"Dabo Kolo",description:"Toasted spiced wheat crackers",price:4.0,veg:true,available:true},
   {id:"m4",category:"Wat & Tibs",name:"Doro Wat",description:"Berbere chicken stew, hard-boiled egg",price:13.5,veg:false,available:true},
   {id:"m5",category:"Wat & Tibs",name:"Zigni",description:"Eritrean-style spiced beef stew",price:12.0,veg:false,available:true},
@@ -620,8 +641,8 @@ const DEFAULT_MENU = [
   {id:"m11",category:"Combination Platters",name:"Beyaynetu",description:"Vegetarian combination on injera, chef's selection",price:11.5,veg:true,available:true},
   {id:"m12",category:"Combination Platters",name:"Asmara & Addis Special",description:"Doro wat, zigni and beef tibs on injera",price:16.5,veg:false,available:true},
   {id:"m13",category:"Breads & Sides",name:"Extra Injera",description:"Sourdough teff flatbread, basket of two",price:2.5,veg:true,available:true},
-  {id:"m14",category:"Beverages & Dessert",name:"Buna (Coffee Ceremony)",description:"Traditional Ethiopian coffee, cardamom",price:3.5,veg:true,available:true},
-  {id:"m15",category:"Beverages & Dessert",name:"Mango Juice",description:"Fresh pressed, seasonal",price:3.5,veg:true,available:true}
+  {id:"m14",category:"Beverages & Dessert",name:"Buna (Coffee Ceremony)",description:"Traditional Ethiopian coffee, cardamom",price:3.5,veg:true,available:true,is_beverage:true},
+  {id:"m15",category:"Beverages & Dessert",name:"Mango Juice",description:"Fresh pressed, seasonal",price:3.5,veg:true,available:true,is_beverage:true,track_stock:true,stock_qty:24,low_stock_alert:6,unit:'bottle',cost_per_unit:1.10}
 ];
 const TABLE_PATTERN = [2,4,4,6,2,8];
 
@@ -633,6 +654,12 @@ function uid(p){ return (p||'id')+'-'+Math.random().toString(36).slice(2,9)+Date
 let settings = load('posv2_settings', DEFAULT_SETTINGS);
 let users = load('posv2_users', DEFAULT_USERS);
 let menu = load('posv2_menu', DEFAULT_MENU);
+const DEFAULT_INGREDIENTS = [
+  {id:'ing1', name:'Red Lentils', unit:'g', stock_qty:5000, low_stock_alert:500, cost_per_unit:0.003, batches:[]},
+  {id:'ing2', name:'Injera Flour (Teff)', unit:'g', stock_qty:8000, low_stock_alert:800, cost_per_unit:0.004, batches:[]},
+  {id:'ing3', name:'Berbere Spice Mix', unit:'g', stock_qty:2000, low_stock_alert:200, cost_per_unit:0.02, batches:[]}
+];
+let ingredients = load('posv2_ingredients', DEFAULT_INGREDIENTS);
 function zoneForIndex(i, count){ return i < Math.ceil(count*0.7) ? 'indoor' : 'outdoor'; }
 let tables = load('posv2_tables', null);
 if(!tables){
@@ -653,46 +680,95 @@ let session = load('posv2_session', null);
 
 /* ===================== ACCOUNTING (ACCOUNTANT LOGIN) ===================== */
 const DEFAULT_LEDGER_ACCOUNTS = [
-  {id:'1000', code:'1000', name:'Cash on Hand', type:'asset'},
-  {id:'1010', code:'1010', name:'Bank Account', type:'asset'},
-  {id:'2000', code:'2000', name:'Sales Tax Payable', type:'liability'},
-  {id:'2010', code:'2010', name:'Tips Payable', type:'liability'},
+  {id:'1010', code:'1010', name:'Cash', type:'asset'},
+  {id:'1020', code:'1020', name:'Card Clearing', type:'asset'},
+  {id:'1030', code:'1030', name:'Mobile Money', type:'asset'},
+  {id:'1310', code:'1310', name:'Inventory Asset', type:'asset'},
+  {id:'2010', code:'2010', name:'Tax Payable', type:'liability'},
+  {id:'2020', code:'2020', name:'Tips Payable', type:'liability'},
   {id:'3000', code:'3000', name:"Owner's Equity", type:'equity'},
-  {id:'4000', code:'4000', name:'Sales Revenue', type:'revenue'},
-  {id:'4010', code:'4010', name:'Service Charge Income', type:'revenue'},
+  {id:'4010', code:'4010', name:'Food Sales', type:'revenue'},
+  {id:'4020', code:'4020', name:'Beverage Sales', type:'revenue'},
+  {id:'4030', code:'4030', name:'Service Charge Income', type:'revenue'},
   {id:'4900', code:'4900', name:'Discounts Given', type:'contra_revenue'},
-  {id:'5000', code:'5000', name:'Operating Expenses', type:'expense'}
+  {id:'5110', code:'5110', name:'Cost of Goods Sold', type:'expense'},
+  {id:'5900', code:'5900', name:'Operating Expenses', type:'expense'}
 ];
+const LEDGER_SCHEMA_VERSION = 2;
 let ledgerAccounts = load('posv2_ledgerAccounts', null);
 if(!ledgerAccounts){ ledgerAccounts = DEFAULT_LEDGER_ACCOUNTS.map(a=>({...a})); save('posv2_ledgerAccounts', ledgerAccounts); }
+(function migrateLedgerSchema(){
+  const ver=load('posv2_ledgerVersion', 1);
+  if(ver<LEDGER_SCHEMA_VERSION){
+    ledgerAccounts = DEFAULT_LEDGER_ACCOUNTS.map(a=>({...a}));
+    save('posv2_ledgerAccounts', ledgerAccounts);
+    save('posv2_ledgerVersion', LEDGER_SCHEMA_VERSION);
+  }
+})();
 let journal = load('posv2_journal', []);
 let exchangeRates = load('posv2_exchangeRates', []);
 let taxPeriods = load('posv2_taxPeriods', {});
 function round2(n){ return Math.round((n||0)*100)/100; }
 function accountById(id){ return ledgerAccounts.find(a=>a.id===id); }
 function nextJournalRef(){ return 'JE'+String(journal.length+1).padStart(5,'0'); }
-function postSaleJournalEntry(record){
+function paymentAccountFor(method){ return method==='cash' ? '1010' : (method==='card' ? '1020' : '1030'); }
+function splitRevenueByCategory(orderItems){
+  let foodTotal=0, beverageTotal=0;
+  orderItems.forEach(li=>{
+    const m=menu.find(x=>x.id===li.itemId);
+    const lineTotal=(li.price||0)*(li.qty||0);
+    if(m && m.is_beverage) beverageTotal+=lineTotal; else foodTotal+=lineTotal;
+  });
+  return { foodTotal:round2(foodTotal), beverageTotal:round2(beverageTotal) };
+}
+function computeOrderCOGS(orderItems){
+  let total=0;
+  orderItems.forEach(li=>{
+    const m=menu.find(x=>x.id===li.itemId);
+    if(!m) return;
+    if(m.track_stock && m.cost_per_unit) total += (Number(m.cost_per_unit)||0) * (li.qty||0);
+    if(Array.isArray(m.recipe)){
+      m.recipe.forEach(rl=>{
+        const ing=ingredients.find(i=>i.id===rl.ingredientId);
+        if(ing) total += (Number(ing.cost_per_unit)||0) * (Number(rl.qty)||0) * (li.qty||0);
+      });
+    }
+  });
+  return round2(total);
+}
+function postSaleJournalEntry(record, orderItems){
   const lines=[];
   const addDebit=(accId, amt)=>{ if(amt<=0) return; const ex=lines.find(l=>l.accountId===accId && l.debit>0); if(ex) ex.debit=round2(ex.debit+amt); else lines.push({accountId:accId, debit:round2(amt), credit:0, reconciled:false}); };
   if(record.paymentMethod==='split' && record.paymentDetail && record.paymentDetail.parts && record.paymentDetail.parts.length){
-    record.paymentDetail.parts.forEach(p=>addDebit(p.method==='cash'?'1000':'1010', Number(p.amount)||0));
+    record.paymentDetail.parts.forEach(p=>addDebit(paymentAccountFor(p.method), Number(p.amount)||0));
   } else {
-    addDebit(record.paymentMethod==='cash'?'1000':'1010', record.grandTotal);
+    addDebit(paymentAccountFor(record.paymentMethod), record.grandTotal);
   }
   if(record.discountAmount>0) lines.push({accountId:'4900', debit:round2(record.discountAmount), credit:0, reconciled:false});
-  if(record.subtotal>0) lines.push({accountId:'4000', debit:0, credit:round2(record.subtotal), reconciled:false});
-  if(record.tax>0) lines.push({accountId:'2000', debit:0, credit:round2(record.tax), reconciled:false});
-  if(record.serviceCharge>0) lines.push({accountId:'4010', debit:0, credit:round2(record.serviceCharge), reconciled:false});
-  if(record.tip>0) lines.push({accountId:'2010', debit:0, credit:round2(record.tip), reconciled:false});
+  const {foodTotal, beverageTotal} = splitRevenueByCategory(orderItems||[]);
+  if(foodTotal>0) lines.push({accountId:'4010', debit:0, credit:foodTotal, reconciled:false});
+  if(beverageTotal>0) lines.push({accountId:'4020', debit:0, credit:beverageTotal, reconciled:false});
+  if(record.tax>0) lines.push({accountId:'2010', debit:0, credit:round2(record.tax), reconciled:false});
+  if(record.serviceCharge>0) lines.push({accountId:'4030', debit:0, credit:round2(record.serviceCharge), reconciled:false});
+  if(record.tip>0) lines.push({accountId:'2020', debit:0, credit:round2(record.tip), reconciled:false});
   journal.push({ id:uid('je'), ref:record.receiptNo, date:record.datetime, memo:'Sale — Receipt '+record.receiptNo+' (Table '+record.tableNum+')',
     source:'sale', sourceRecordId:record.id, currency:settings.currency, fxRate:1, lines, createdBy:(currentUser?currentUser.name:'system'), createdAt:Date.now() });
+
+  const cogs=computeOrderCOGS(orderItems||[]);
+  if(cogs>0){
+    journal.push({ id:uid('je'), ref:record.receiptNo, date:record.datetime, memo:'COGS — Receipt '+record.receiptNo+' (ingredient usage)',
+      source:'cogs', sourceRecordId:record.id, currency:settings.currency, fxRate:1,
+      lines:[{accountId:'5110', debit:cogs, credit:0, reconciled:false},{accountId:'1310', debit:0, credit:cogs, reconciled:false}],
+      createdBy:(currentUser?currentUser.name:'system'), createdAt:Date.now() });
+  }
 }
 function reverseSaleJournalEntry(record){
-  const original = journal.find(j=>j.source==='sale' && j.sourceRecordId===record.id);
-  if(!original) return;
-  const lines = original.lines.map(l=>({accountId:l.accountId, debit:l.credit, credit:l.debit, reconciled:false}));
-  journal.push({ id:uid('je'), ref:nextJournalRef(), date:Date.now(), memo:'Reversal — Receipt '+record.receiptNo+' voided',
-    source:'reversal', sourceRecordId:record.id, currency:settings.currency, fxRate:1, lines, createdBy:(currentUser?currentUser.name:'system'), createdAt:Date.now() });
+  const toReverse = journal.filter(j=>(j.source==='sale'||j.source==='cogs') && j.sourceRecordId===record.id);
+  toReverse.forEach(original=>{
+    const lines = original.lines.map(l=>({accountId:l.accountId, debit:l.credit, credit:l.debit, reconciled:false}));
+    journal.push({ id:uid('je'), ref:nextJournalRef(), date:Date.now(), memo:(original.source==='cogs'?'COGS reversal':'Reversal')+' — Receipt '+record.receiptNo+' voided',
+      source:'reversal', sourceRecordId:record.id, currency:settings.currency, fxRate:1, lines, createdBy:(currentUser?currentUser.name:'system'), createdAt:Date.now() });
+  });
 }
 function accountBalance(accId, upToMs){
   const acc=accountById(accId); if(!acc) return 0;
@@ -725,6 +801,7 @@ function persistAll(){
   save('posv2_handovers', handovers); save('posv2_audit', auditLog); save('posv2_session', session);
   save('posv2_ledgerAccounts', ledgerAccounts); save('posv2_journal', journal);
   save('posv2_exchangeRates', exchangeRates); save('posv2_taxPeriods', taxPeriods);
+  save('posv2_ingredients', ingredients);
   queueSupabaseSync();
 }
 
@@ -753,6 +830,7 @@ async function doSyncToSupabase(){
     await syncTable('staff_users', users.map(u=>({id:u.id, business_id:currentBusinessId, name:u.name, role:u.role, pin:u.pin, meta:u})));
     await syncTable('restaurant_tables', tables.map(t=>({id:t.id, business_id:currentBusinessId, num:t.num, capacity:t.capacity, zone:t.zone==='outdoor'?'outdoor':'indoor', waiter_id:t.waiterId||null, meta:t})));
     await syncTable('menu_items', menu.map(m=>({id:m.id, business_id:currentBusinessId, category:m.category||'', name:m.name, description:m.description||'', price:m.price||0, veg:!!m.veg, available:!!m.available, photo_url:m.photo||m.photoUrl||null, meta:m})));
+    await syncTable('ingredients', ingredients.map(i=>({id:i.id, business_id:currentBusinessId, name:i.name, unit:i.unit||'', stock_qty:i.stock_qty||0, low_stock_alert:i.low_stock_alert||0, cost_per_unit:i.cost_per_unit||0, meta:i})));
     const orderRows = [
       ...activeOrders.map(o=>({id:o.id, business_id:currentBusinessId, status:'open', table_num:(tableById(o.tableId)||{}).num||null, waiter_name:o.waiterName||'', items:o.items||[], grand_total:0, meta:o})),
       ...history.map(r=>({id:r.id, business_id:currentBusinessId, status:r.voided?'voided':'paid', table_num:r.tableNum||null, waiter_name:r.waiter||'', items:r.items||[],
@@ -772,13 +850,14 @@ async function loadBusinessData(){
   settings = Object.assign({}, DEFAULT_SETTINGS, biz.settings_json||{});
   if(biz.name) settings.restaurantName = biz.name;
 
-  const [staffRes, tablesRes, menuRes, ordersRes, handoversRes, auditRes] = await Promise.all([
+  const [staffRes, tablesRes, menuRes, ordersRes, handoversRes, auditRes, ingredientsRes] = await Promise.all([
     sb.from('staff_users').select('*').eq('business_id', currentBusinessId),
     sb.from('restaurant_tables').select('*').eq('business_id', currentBusinessId),
     sb.from('menu_items').select('*').eq('business_id', currentBusinessId),
     sb.from('orders').select('*').eq('business_id', currentBusinessId),
     sb.from('shift_handovers').select('*').eq('business_id', currentBusinessId),
-    sb.from('audit_log').select('*').eq('business_id', currentBusinessId)
+    sb.from('audit_log').select('*').eq('business_id', currentBusinessId),
+    sb.from('ingredients').select('*').eq('business_id', currentBusinessId)
   ]);
 
   const isFirstLoad = !(staffRes.data&&staffRes.data.length) && !(tablesRes.data&&tablesRes.data.length) && !(menuRes.data&&menuRes.data.length);
@@ -790,6 +869,7 @@ async function loadBusinessData(){
     for(let i=0;i<settings.tableCount;i++){ const num=i+1; tables.push({id:uid('t'), num, capacity:TABLE_PATTERN[i%TABLE_PATTERN.length], waiterId:(num%2===0?'u4':'u3'), zone:zoneForIndex(i,settings.tableCount)}); }
   }
   menu = (menuRes.data&&menuRes.data.length) ? menuRes.data.map(r=>r.meta||r) : DEFAULT_MENU.map(m=>({...m}));
+  ingredients = (ingredientsRes.data&&ingredientsRes.data.length) ? ingredientsRes.data.map(r=>r.meta||r) : DEFAULT_INGREDIENTS.map(i=>({...i}));
 
   activeOrders=[]; history=[];
   (ordersRes.data||[]).forEach(r=>{ if(r.status==='open') activeOrders.push(r.meta||r); else history.push(r.meta||r); });
@@ -804,7 +884,7 @@ let currentUser = null;
 
 /* ===================== PERMISSIONS ===================== */
 const PERMS = {
-  manager: new Set(['assignWaiter','reserveTable','configureTables','manageMenu','manageUsers','manageSettings','applyDiscount','processPayment','viewAllOrders','reprintAny','confirmHandover','openCashierShift','closeCashierShift','viewAudit','reopenTransaction','viewAllBalances','recordOtherCashMovement','systemReset']),
+  manager: new Set(['assignWaiter','reserveTable','configureTables','manageMenu','manageUsers','manageSettings','applyDiscount','processPayment','viewAllOrders','reprintAny','confirmHandover','openCashierShift','closeCashierShift','viewAudit','reopenTransaction','viewAllBalances','recordOtherCashMovement','systemReset','manageInventory']),
   cashier: new Set(['assignWaiter','reserveTable','applyDiscount','processPayment','viewAllOrders','reprintAny','confirmHandover','openCashierShift','closeCashierShift','viewAllBalances','recordOtherCashMovement']),
   waiter: new Set(['processPayment','recordHandover','openWaiterShift','closeWaiterShift','reprintOwn']),
   accountant: new Set(['viewAllOrders','viewAudit','viewFinance','manageAccounting'])
@@ -1066,7 +1146,8 @@ const NAV = [
   {key:'history', label:'History', roles:['manager','cashier','waiter','accountant']},
   {key:'cash', label:'Cash', roles:['manager','cashier','waiter']},
   {key:'dashboard', label:'Dashboard', roles:['manager','cashier','waiter','accountant']},
-  {key:'finance', label:'Accounting', roles:['accountant']},
+  {key:'inventory', label:'Inventory', roles:['manager']},
+  {key:'finance', label:'Finance / Journal Entries', roles:['accountant']},
   {key:'audit', label:'Audit', roles:['manager','accountant']},
   {key:'settings', label:'Settings', roles:['manager']}
 ];
@@ -1100,6 +1181,7 @@ function switchView(view){
   if(view==='history') renderHistory();
   if(view==='cash') renderCash();
   if(view==='dashboard') renderDashboard();
+  if(view==='inventory'){ if(!requireOrToast('manageInventory')){ switchView('floor'); return; } renderInventory(); }
   if(view==='finance'){ if(!requireOrToast('viewFinance')){ switchView('floor'); return; } renderFinance(); }
   if(view==='audit'){ if(!requireOrToast('viewAudit')){ switchView('floor'); return; } renderAudit(); }
   if(view==='settings'){ if(!requireOrToast('manageSettings')){ switchView('floor'); return; } renderSettings(); }
@@ -1237,7 +1319,7 @@ function openTable(tableId){
 function createOrder(tableId){
   const t=tableById(tableId);
   const w = t.waiterId ? userById(t.waiterId) : null;
-  const order={ id:uid('o'), tableId, waiterId:t.waiterId||null, waiterName: w?w.name:'', items:[], discount:{type:'percent',value:0}, serviceChargeEnabled:true, tip:0, createdAt:Date.now() };
+  const order={ id:uid('o'), tableId, waiterId:t.waiterId||null, waiterName: w?w.name:'', items:[], discount:{type:'percent',value:0}, serviceChargeEnabled:true, tip:0, createdAt:Date.now(), registered:false };
   activeOrders.push(order);
   audit('Order created','table:'+t.num,'', order.id);
   return order;
@@ -1287,22 +1369,36 @@ function renderOrderView(){
 
   const itemsEl=document.getElementById('menuItems');
   const items=menu.filter(m=>m.category===currentCategory);
-  itemsEl.innerHTML = items.map(m=>`
-    <div class="item-card ${m.available?'':'unavailable'}" data-mid="${m.id}">
+  itemsEl.innerHTML = items.map(m=>{
+    const tracked=!!m.track_stock;
+    const qty=Number(m.stock_qty)||0;
+    const lowThreshold=Number(m.low_stock_alert)||0;
+    const outOfStock = tracked && qty<=0;
+    const lowStock = tracked && !outOfStock && qty<=lowThreshold;
+    const disabled = !m.available || outOfStock;
+    let stockBadge='';
+    if(tracked){
+      if(outOfStock) stockBadge=`<div class="stock-badge out">Out of Stock</div>`;
+      else if(lowStock) stockBadge=`<div class="stock-badge low">${qty} ${escapeHtml(m.unit||'left')} left</div>`;
+      else stockBadge=`<div class="stock-badge ok">${qty} ${escapeHtml(m.unit||'in stock')}</div>`;
+    }
+    return `
+    <div class="item-card ${disabled?'unavailable':''}" data-mid="${m.id}">
       <div class="veg-badge ${m.veg?'':'nonveg'}"><span class="d"></span></div>
-      ${m.available?'':'<div class="unavail-chip">Unavailable</div>'}
-      <div class="item-photo">${m.image ? `<img src="${escapeHtml(m.image)}" alt="${escapeHtml(m.name)}">` : `<div class="item-photo-placeholder">${escapeHtml(itemInitials(m.name))}</div>`}</div>
+      ${!m.available?'<div class="unavail-chip">Unavailable</div>':(outOfStock?'<div class="unavail-chip">Out of Stock</div>':'')}
+      <div class="item-photo">${m.image ? `<img src="${escapeHtml(m.image)}" alt="${escapeHtml(m.name)}">` : `<div class="item-photo-placeholder">${escapeHtml(itemInitials(m.name))}</div>`}${stockBadge}</div>
       <div class="item-content">
         <div class="item-name">${escapeHtml(m.name)}</div>
         <div class="item-desc">${escapeHtml(m.description)}</div>
         <div class="item-price">${fmt(m.price)}</div>
       </div>
     </div>
-  `).join('');
+  `;}).join('');
   itemsEl.querySelectorAll('.item-card').forEach(card=>{
     card.addEventListener('click', ()=>{
       const m=menu.find(x=>x.id===card.dataset.mid);
       if(!m.available) return;
+      if(m.track_stock && (Number(m.stock_qty)||0)<=0){ showToast(m.name+' is out of stock.'); return; }
       addItemToOrder(m);
     });
   });
@@ -1310,12 +1406,34 @@ function renderOrderView(){
   renderOrderSide();
 }
 function addItemToOrder(menuItem){
+  if(menuItem.track_stock && (Number(menuItem.stock_qty)||0)<=0){ showToast(menuItem.name+' is out of stock.'); return; }
   const order=getCurrentOrder();
   const existing=order.items.find(i=>i.itemId===menuItem.id && !i.note);
-  if(existing) existing.qty++;
-  else order.items.push({id:uid('li'), itemId:menuItem.id, name:menuItem.name, price:menuItem.price, qty:1, note:''});
+  if(existing){ existing.qty++; if(order.registered) existing.locked=true; }
+  else order.items.push({id:uid('li'), itemId:menuItem.id, name:menuItem.name, price:menuItem.price, qty:1, note:'', locked: !!order.registered});
   audit('Item added', 'order:'+order.id, '', menuItem.name);
   persistAll(); renderFloor(); renderOrderSide();
+}
+function deductStockForOrderItems(orderItems){
+  orderItems.forEach(li=>{
+    const m=menu.find(x=>x.id===li.itemId);
+    if(!m) return;
+    if(m.track_stock){
+      const before=Number(m.stock_qty)||0;
+      m.stock_qty = Math.max(0, before - (Number(li.qty)||0));
+      if(before>0 && m.stock_qty<=0) audit('Stock depleted', m.name, before, 0);
+    }
+    if(Array.isArray(m.recipe)){
+      m.recipe.forEach(rl=>{
+        const ing=ingredients.find(i=>i.id===rl.ingredientId);
+        if(!ing) return;
+        const before=Number(ing.stock_qty)||0;
+        const consumed=(Number(rl.qty)||0)*(Number(li.qty)||0);
+        ing.stock_qty = round2(Math.max(0, before-consumed));
+        if(before>0 && ing.stock_qty<=0) audit('Ingredient depleted', ing.name, before, 0);
+      });
+    }
+  });
 }
 function renderOrderSide(){
   const order=getCurrentOrder();
@@ -1326,20 +1444,22 @@ function renderOrderSide(){
   const totals=calcTotals(order);
   const discountAllowed = can('applyDiscount');
   const payAllowed = can('processPayment') && (currentUser.role!=='waiter' || t.waiterId===currentUser.id);
+  const anyLocked = order.items.some(it=>it.locked);
+  const hasUnlockedItems = order.items.some(it=>!it.locked);
 
   side.innerHTML=`
     <div class="side-scroll">
-      <div class="side-sub">Order Items</div>
+      <div class="side-sub">Order Items${anyLocked?' <span class="lock-chip" title="Items from a registered draft can only be increased, not removed or reduced. Ask a manager to cancel/void the order to make other changes.">🔒 Registered items locked</span>':''}</div>
       ${order.items.length===0?'<div class="side-empty">No items yet — tap a menu item to add it.</div>':''}
       ${order.items.map((it,idx)=>`
-        <div class="line-item">
-          <div class="li-top"><div class="li-name">${escapeHtml(it.name)}</div><button class="li-remove" data-remove="${idx}">&times;</button></div>
+        <div class="line-item ${it.locked?'li-locked':''}">
+          <div class="li-top"><div class="li-name">${escapeHtml(it.name)}${it.locked?' <span class="li-lock-icon" title="Registered — increase only">🔒</span>':''}</div>${it.locked?'':`<button class="li-remove" data-remove="${idx}">&times;</button>`}</div>
           <div class="li-mid">
-            <div class="qty-ctl"><button data-dec="${idx}">−</button><span>${it.qty}</span><button data-inc="${idx}">+</button></div>
+            <div class="qty-ctl"><button data-dec="${idx}" ${it.locked?'disabled title="Registered items can only be increased — ask a manager to void the order to reduce items."':''}>−</button><span>${it.qty}</span><button data-inc="${idx}">+</button></div>
             <div class="li-price">${fmt(it.price*it.qty)}</div>
           </div>
           <input class="li-note" data-note="${idx}" placeholder="Add a note (e.g. no onions)" value="${escapeHtml(it.note)}">
-          ${orders.length>1?`<select class="li-move" data-move="${idx}">
+          ${orders.length>1&&!it.locked?`<select class="li-move" data-move="${idx}">
             <option value="">Move to…</option>
             ${orders.filter(o=>o.id!==order.id).map((o,i2)=>`<option value="${o.id}">Check ${orders.indexOf(o)+1}</option>`).join('')}
           </select>`:''}
@@ -1372,17 +1492,31 @@ function renderOrderSide(){
     <div class="side-actions">
       <button class="btn btn-outline" id="btnSaveDraft">Save Draft</button>
       <button class="btn btn-amber" id="btnCheckout" ${order.items.length===0||!payAllowed?'disabled':''}>${payAllowed?'Checkout':'Not authorized'}</button>
-      <button class="btn btn-outline" id="btnDeleteCheck">${order.items.length===0?'Remove Empty Check':'Cancel Order (Manager PIN Required)'}</button>
+      <button class="btn btn-outline" id="btnDeleteCheck">${order.items.length===0?'Remove Empty Check':'Void Order (Manager PIN Required)'}</button>
     </div>
   `;
+  const draftBtn=side.querySelector('#btnSaveDraft');
+  if(order.items.length===0){ draftBtn.textContent='Save Draft (Register Order)'; draftBtn.disabled=true; }
+  else if(hasUnlockedItems){ draftBtn.textContent = order.registered ? 'Register New Items' : 'Save Draft (Register Order)'; draftBtn.disabled=false; }
+  else { draftBtn.textContent='Order Registered ✓'; draftBtn.disabled=true; }
 
-  side.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{ audit('Item removed','order:'+order.id,order.items[+b.dataset.remove].name,''); order.items.splice(+b.dataset.remove,1); persistAll(); renderFloor(); renderOrderSide(); });
-  side.querySelectorAll('[data-inc]').forEach(b=>b.onclick=()=>{ order.items[+b.dataset.inc].qty++; persistAll(); renderFloor(); renderOrderSide(); });
-  side.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>{ const idx=+b.dataset.dec; order.items[idx].qty--; if(order.items[idx].qty<=0) order.items.splice(idx,1); persistAll(); renderFloor(); renderOrderSide(); });
+  side.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{ const idx=+b.dataset.remove; if(order.items[idx].locked) return; audit('Item removed','order:'+order.id,order.items[idx].name,''); order.items.splice(idx,1); persistAll(); renderFloor(); renderOrderSide(); });
+  side.querySelectorAll('[data-inc]').forEach(b=>b.onclick=()=>{
+    const idx=+b.dataset.inc;
+    order.items[idx].qty++;
+    if(order.registered) order.items[idx].locked=true;
+    persistAll(); renderFloor(); renderOrderSide();
+  });
+  side.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>{
+    const idx=+b.dataset.dec;
+    if(order.items[idx].locked){ showToast('This item is part of a registered draft — ask a manager to void the order to reduce it.'); return; }
+    order.items[idx].qty--; if(order.items[idx].qty<=0) order.items.splice(idx,1); persistAll(); renderFloor(); renderOrderSide();
+  });
   side.querySelectorAll('[data-note]').forEach(inp=>inp.addEventListener('change', ()=>{ order.items[+inp.dataset.note].note=inp.value; persistAll(); }));
   side.querySelectorAll('[data-move]').forEach(sel=>sel.addEventListener('change', ()=>{
-    if(!sel.value) return;
     const idx=+sel.dataset.move;
+    if(order.items[idx].locked) return;
+    if(!sel.value) return;
     const target=activeOrders.find(o=>o.id===sel.value);
     const [moved]=order.items.splice(idx,1);
     target.items.push(moved);
@@ -1397,7 +1531,15 @@ function renderOrderSide(){
   const tv=side.querySelector('#tipValue');
   if(tv) tv.addEventListener('input', ()=>{ order.tip=Number(tv.value)||0; persistAll(); renderOrderSide(); });
 
-  side.querySelector('#btnSaveDraft').onclick=()=>{ persistAll(); showToast('Draft saved'); };
+  side.querySelector('#btnSaveDraft').onclick=()=>{
+    if(order.items.length===0){ showToast('Add at least one item before registering the order.'); return; }
+    const wasRegistered=order.registered;
+    order.items.forEach(it=>{ it.locked=true; });
+    order.registered=true;
+    audit(wasRegistered?'New items registered':'Order registered','order:'+order.id,'','items locked — increase-only');
+    persistAll(); renderOrderSide();
+    showToast(wasRegistered?'New items registered — locked to increase-only.':'Order registered — items can now only be added or increased.');
+  };
   const coBtn=side.querySelector('#btnCheckout');
   if(coBtn && !coBtn.disabled) coBtn.onclick=()=>{ openCheckout(order.id); };
   side.querySelector('#btnDeleteCheck').onclick=()=>{
@@ -1586,14 +1728,15 @@ document.getElementById('btnConfirmPay').addEventListener('click', ()=>{
   settings.receiptCounter++;
   const record={
     id:uid('h'), receiptNo, tableNum:t.num, waiter:order.waiterName||'', cashierUser:currentUser.name, cashierRole:currentUser.role,
-    items:order.items.map(i=>({name:i.name, price:i.price, qty:i.qty, note:i.note})),
+    items:order.items.map(i=>({itemId:i.itemId, name:i.name, price:i.price, qty:i.qty, note:i.note})),
     subtotal:totals.subtotal, discountAmount:totals.discountAmount, discount:{...order.discount},
     serviceCharge:totals.serviceCharge, tax:totals.tax, tip:totals.tip, grandTotal:totals.grandTotal,
     paymentMethod:payMethod, paymentDetail, datetime:Date.now(), voided:false
   };
   history.push(record);
-  postSaleJournalEntry(record);
+  postSaleJournalEntry(record, order.items);
   audit('Payment recorded', record.receiptNo, '', payMethod+' '+fmt(totals.grandTotal));
+  deductStockForOrderItems(order.items);
 
   // waiter cash accountability
   if(currentUser.role==='waiter'){
@@ -2111,6 +2254,234 @@ function renderDashboard(){
   `;
 }
 
+/* ===================== INVENTORY (MANAGER LOGIN — operational quantities only) ===================== */
+let currentInvTab='usage';
+function trackedMenuItems(){ return menu.filter(m=>m.track_stock); }
+function renderInventory(){
+  document.querySelectorAll('#invTabs .zone-tab').forEach(b=>b.classList.toggle('active', b.dataset.inv===currentInvTab));
+  renderInvBody();
+}
+document.getElementById('invTabs').addEventListener('click', (e)=>{
+  const btn=e.target.closest('.zone-tab'); if(!btn) return;
+  currentInvTab=btn.dataset.inv; renderInventory();
+});
+function renderInvBody(){
+  const body=document.getElementById('invBody');
+  if(currentInvTab==='usage') return renderInvUsage(body);
+  if(currentInvTab==='ingredients') return renderInvIngredients(body);
+  if(currentInvTab==='items') return renderInvItems(body);
+}
+function computeUsageSummary(fromStr, toStr){
+  let rows=history.filter(r=>!r.voided);
+  if(fromStr){ const start=new Date(fromStr+'T00:00:00').getTime(); rows=rows.filter(r=>new Date(r.datetime).getTime()>=start); }
+  if(toStr){ const end=new Date(toStr+'T23:59:59').getTime(); rows=rows.filter(r=>new Date(r.datetime).getTime()<=end); }
+  const soldByItemId={}, soldByName={};
+  rows.forEach(r=>{
+    (r.items||[]).forEach(li=>{
+      if(li.itemId) soldByItemId[li.itemId]=(soldByItemId[li.itemId]||0)+(li.qty||0);
+      else soldByName[li.name]=(soldByName[li.name]||0)+(li.qty||0);
+    });
+  });
+  const itemSales = menu.map(m=>{
+    const qty=(soldByItemId[m.id]||0)+(soldByName[m.name]||0);
+    return { id:m.id, name:m.name, unit:m.unit, tracked:!!m.track_stock, stockQty:Number(m.stock_qty)||0, lowAlert:Number(m.low_stock_alert)||0, qtySold:qty };
+  }).filter(x=>x.qtySold>0).sort((a,b)=>b.qtySold-a.qtySold);
+  const ingUsage={};
+  menu.forEach(m=>{
+    if(!Array.isArray(m.recipe)) return;
+    const qtySold=(soldByItemId[m.id]||0)+(soldByName[m.name]||0);
+    if(qtySold<=0) return;
+    m.recipe.forEach(rl=>{ ingUsage[rl.ingredientId]=(ingUsage[rl.ingredientId]||0)+(Number(rl.qty)||0)*qtySold; });
+  });
+  const ingredientRows = ingredients.map(ing=>({ id:ing.id, name:ing.name, unit:ing.unit, used:round2(ingUsage[ing.id]||0), stockQty:Number(ing.stock_qty)||0, lowAlert:Number(ing.low_stock_alert)||0 }))
+    .filter(x=>x.used>0).sort((a,b)=>b.used-a.used);
+  return { itemSales, ingredientRows, orderCount:rows.length };
+}
+function stockStatusChip(stockQty, lowAlert){
+  if(stockQty<=0) return '<span class="stock-badge out" style="position:static;">Out of Stock</span>';
+  if(stockQty<=lowAlert) return '<span class="stock-badge low" style="position:static;">Low Stock</span>';
+  return '<span class="stock-badge ok" style="position:static;">OK</span>';
+}
+function renderInvUsage(body){
+  const {from,to}=monthStartEnd();
+  body.innerHTML = dateFilterRowHtml('uFrom','uTo',from,to) + `<div id="usageBody"></div>`;
+  ['uFrom','uTo'].forEach(id=>document.getElementById(id).addEventListener('input', renderUsageBody));
+  renderUsageBody();
+}
+function renderUsageBody(){
+  const el=document.getElementById('usageBody'); if(!el) return;
+  const from=document.getElementById('uFrom').value, to=document.getElementById('uTo').value;
+  const {itemSales, ingredientRows, orderCount} = computeUsageSummary(from, to);
+  const totalUnitsSold = itemSales.reduce((s,x)=>s+x.qtySold,0);
+  el.innerHTML = `
+    <div class="stat-grid" style="margin-bottom:18px;">
+      <div class="stat-box"><div class="l">Orders in Range</div><div class="v">${orderCount}</div></div>
+      <div class="stat-box"><div class="l">Menu Item Units Sold</div><div class="v">${totalUnitsSold}</div></div>
+      <div class="stat-box"><div class="l">Ingredients Used</div><div class="v">${ingredientRows.length}</div></div>
+    </div>
+    <div class="section-title" style="margin-top:0;">Menu Item Sales (Units)</div>
+    ${itemSales.length===0?'<div class="empty-note">No items sold in this range.</div>':`
+    <table class="data-table"><thead><tr><th>Item</th><th>Units Sold</th><th>Current Stock</th><th>Status</th></tr></thead><tbody>
+      ${itemSales.map(x=>`<tr><td>${escapeHtml(x.name)}</td><td>${x.qtySold}</td><td>${x.tracked?x.stockQty+' '+escapeHtml(x.unit||''):'—'}</td><td>${x.tracked?stockStatusChip(x.stockQty,x.lowAlert):'—'}</td></tr>`).join('')}
+    </tbody></table>`}
+    <div class="section-title">Ingredient Usage</div>
+    ${ingredientRows.length===0?'<div class="empty-note">No recipe-linked ingredient usage in this range.</div>':`
+    <table class="data-table"><thead><tr><th>Ingredient</th><th>Used</th><th>Current Stock</th><th>Status</th></tr></thead><tbody>
+      ${ingredientRows.map(x=>`<tr><td>${escapeHtml(x.name)}</td><td>${x.used} ${escapeHtml(x.unit)}</td><td>${x.stockQty} ${escapeHtml(x.unit)}</td><td>${stockStatusChip(x.stockQty,x.lowAlert)}</td></tr>`).join('')}
+    </tbody></table>`}
+  `;
+}
+function renderInvIngredients(body){
+  body.innerHTML = `
+    <div style="text-align:right; margin-bottom:10px;"><button class="btn btn-outline-dark" id="btnAddIngredient" style="width:auto; padding:8px 14px;">+ Add Ingredient</button></div>
+    <table class="data-table"><thead><tr><th>Name</th><th>Unit</th><th>Stock</th><th>Low Stock Alert</th><th>Avg Cost / Unit</th><th></th></tr></thead><tbody>
+      ${ingredients.map(ing=>{
+        const low=(Number(ing.stock_qty)||0)<=(Number(ing.low_stock_alert)||0);
+        const batchCount=Array.isArray(ing.batches)?ing.batches.length:0;
+        return `<tr>
+          <td>${escapeHtml(ing.name)}</td><td>${escapeHtml(ing.unit)}</td>
+          <td class="${low?'text-warn':''}">${ing.stock_qty}</td><td>${ing.low_stock_alert}</td><td>${fmt(ing.cost_per_unit||0)}</td>
+          <td><button class="small-btn" data-edit-ing="${ing.id}">Edit</button> <button class="small-btn" data-batches-ing="${ing.id}">Batches (${batchCount})</button> <button class="small-btn danger" data-del-ing="${ing.id}">Delete</button></td>
+        </tr>`;
+      }).join('')}
+    </tbody></table>
+  `;
+  document.getElementById('btnAddIngredient').addEventListener('click', ()=>openIngredientForm(null));
+  body.querySelectorAll('[data-edit-ing]').forEach(b=>b.addEventListener('click', ()=>openIngredientForm(ingredients.find(i=>i.id===b.dataset.editIng))));
+  body.querySelectorAll('[data-batches-ing]').forEach(b=>b.addEventListener('click', ()=>openBatchHistory(ingredients.find(i=>i.id===b.dataset.batchesIng))));
+  body.querySelectorAll('[data-del-ing]').forEach(b=>b.addEventListener('click', ()=>{
+    if(!confirm('Delete this ingredient? Any recipes using it will no longer deplete stock for it.')) return;
+    const ing=ingredients.find(i=>i.id===b.dataset.delIng);
+    ingredients=ingredients.filter(i=>i.id!==b.dataset.delIng);
+    audit('Ingredient deleted', ing?ing.name:'', '', '');
+    persistAll(); renderInvIngredients(body);
+  }));
+}
+function renderInvItems(body){
+  const items=trackedMenuItems();
+  if(items.length===0){ body.innerHTML='<div class="empty-note">No menu items have inventory tracking enabled yet. Turn it on from Settings → Menu.</div>'; return; }
+  body.innerHTML = `<table class="data-table"><thead><tr><th>Item</th><th>Unit</th><th>Stock</th><th>Low Stock Alert</th></tr></thead><tbody>
+    ${items.map(m=>{
+      const low=(Number(m.stock_qty)||0)<=(Number(m.low_stock_alert)||0);
+      return `<tr><td>${escapeHtml(m.name)}</td><td>${escapeHtml(m.unit||'')}</td><td class="${low?'text-warn':''}">${m.stock_qty}</td><td>${m.low_stock_alert}</td></tr>`;
+    }).join('')}
+  </tbody></table>
+  <p class="hint" style="margin-top:10px;">Manage stocked item quantities directly from Settings → Menu, or use Manual Adjustment above for spoilage/wastage/restocking.</p>`;
+}
+function openIngredientForm(ing){
+  const editing=!!ing;
+  const body=`<div class="form-grid">
+    <div class="form-field full"><label>Name</label><input id="ingName" value="${editing?escapeHtml(ing.name):''}"></div>
+    <div class="form-field"><label>Unit</label><input id="ingUnit" placeholder="g, kg, ml, l, unit…" value="${editing?escapeHtml(ing.unit):''}"></div>
+    <div class="form-field"><label>Current Stock</label><input id="ingStock" type="number" step="0.01" value="${editing?ing.stock_qty:0}"></div>
+    <div class="form-field"><label>Low Stock Alert Below</label><input id="ingLowAlert" type="number" step="0.01" value="${editing?ing.low_stock_alert:0}"></div>
+    <div class="form-field"><label>Avg Cost per Unit</label><input id="ingCost" type="number" min="0" step="0.001" value="${editing&&ing.cost_per_unit!=null?ing.cost_per_unit:0}"></div>
+  </div>
+  ${editing?'<p class="hint" style="margin-top:8px;">Tip: to record a new purchase at a different price, use "Manual Adjustment → Add (restock)" instead of editing this field directly — it keeps a batch history and recalculates the average automatically.</p>':''}`;
+  openGeneric(editing?'Edit Ingredient':'Add Ingredient', body, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Save', variant:'btn-amber', handler:()=>{
+      const name=document.getElementById('ingName').value.trim();
+      const unit=document.getElementById('ingUnit').value.trim()||'unit';
+      const stock_qty=Number(document.getElementById('ingStock').value)||0;
+      const low_stock_alert=Number(document.getElementById('ingLowAlert').value)||0;
+      const cost_per_unit=Number(document.getElementById('ingCost').value)||0;
+      if(!name){ showToast('Ingredient name is required.'); return; }
+      if(editing){ Object.assign(ing, {name,unit,stock_qty,low_stock_alert,cost_per_unit}); audit('Ingredient updated', name, '', 'edited'); }
+      else { ingredients.push({id:uid('ing'), name, unit, stock_qty, low_stock_alert, cost_per_unit, batches:[]}); audit('Ingredient created', name, '', 'created'); }
+      persistAll(); closeGeneric(); renderInvBody(); showToast('Ingredient saved');
+    }}
+  ]);
+}
+function openBatchHistory(ing){
+  if(!ing) return;
+  const batches = (Array.isArray(ing.batches)?ing.batches:[]).slice().sort((a,b)=>b.date-a.date);
+  const body = batches.length===0
+    ? '<div class="empty-note">No restock batches recorded yet. Use Manual Adjustment → Add (restock) and enter a unit cost to start tracking batch pricing.</div>'
+    : `<table class="data-table"><thead><tr><th>Date</th><th>Qty</th><th>Unit Cost</th><th>Total Cost</th><th>Note</th><th>By</th></tr></thead><tbody>
+        ${batches.map(b=>`<tr><td>${new Date(b.date).toLocaleDateString()}</td><td>${b.qty} ${escapeHtml(ing.unit)}</td><td>${fmt(b.unitCost)}</td><td>${fmt(b.totalCost)}</td><td>${escapeHtml(b.note||'')}</td><td>${escapeHtml(b.recordedBy||'')}</td></tr>`).join('')}
+      </tbody></table>`;
+  openGeneric('Batch History — '+ing.name, body, [
+    {label:'Close', variant:'btn-amber', handler:closeGeneric}
+  ]);
+}
+document.getElementById('btnManualAdjust').addEventListener('click', ()=>{
+  const options = [
+    ...trackedMenuItems().map(m=>({value:'item:'+m.id, label:m.name+' (menu item, '+(m.unit||'unit')+')'})),
+    ...ingredients.map(i=>({value:'ingredient:'+i.id, label:i.name+' (ingredient, '+i.unit+')'}))
+  ];
+  if(options.length===0){ showToast('No stocked items or ingredients to adjust yet.'); return; }
+  const body=`<div class="form-grid">
+    <div class="form-field full"><label>Item</label><select id="adjTarget">${options.map(o=>`<option value="${o.value}">${escapeHtml(o.label)}</option>`).join('')}</select></div>
+    <div class="form-field"><label>Adjustment</label><select id="adjDirection"><option value="add">Add (restock)</option><option value="subtract">Subtract (spoilage / wastage / correction)</option></select></div>
+    <div class="form-field"><label>Quantity</label><input id="adjQty" type="number" min="0" step="0.01" value="0"></div>
+    <div id="adjBatchFields" style="display:none;">
+      <div class="form-field"><label>Cost per Unit — This Batch</label><input id="adjBatchCost" type="number" min="0" step="0.001" value="0"></div>
+      <div class="form-field"><label>Total Batch Cost</label><input id="adjBatchTotal" type="number" min="0" step="0.01" value="0" readonly style="opacity:.7;"></div>
+      <div class="form-field full"><label>Supplier / Batch Note (optional)</label><input id="adjBatchNote" placeholder="e.g. Kaloum Wholesale Market, invoice #221"></div>
+      <p class="hint full">Recording a batch cost updates this ingredient's running average cost per unit, used for COGS. Leave at 0 to just add quantity without changing cost.</p>
+    </div>
+    <div class="form-field full"><label>Reason</label><select id="adjReason"><option>Restock</option><option>Spoilage</option><option>Kitchen Wastage</option><option>Stock Count Correction</option><option>Other</option></select></div>
+    <div class="form-field full"><label>Notes (optional)</label><input id="adjNotes" placeholder="Any additional detail…"></div>
+  </div>`;
+  openGeneric('Manual Inventory Adjustment', body, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Apply Adjustment', variant:'btn-amber', handler:()=>{
+      const target=document.getElementById('adjTarget').value;
+      const direction=document.getElementById('adjDirection').value;
+      const qty=Number(document.getElementById('adjQty').value)||0;
+      const reason=document.getElementById('adjReason').value;
+      const notes=document.getElementById('adjNotes').value.trim();
+      if(qty<=0){ showToast('Enter a quantity greater than zero.'); return; }
+      const [kind,id]=target.split(':');
+      const delta = direction==='add' ? qty : -qty;
+      const isRestockBatch = kind==='ingredient' && direction==='add';
+      const batchCost = isRestockBatch ? (Number(document.getElementById('adjBatchCost').value)||0) : 0;
+      const batchNote = isRestockBatch ? document.getElementById('adjBatchNote').value.trim() : '';
+      let name='';
+      if(kind==='item'){
+        const m=menu.find(x=>x.id===id); if(!m) return;
+        const before=Number(m.stock_qty)||0;
+        m.stock_qty=round2(Math.max(0, before+delta));
+        name=m.name;
+        audit('Manual stock adjustment', name, before, m.stock_qty+' ('+reason+(notes?': '+notes:'')+')');
+      } else {
+        const ing=ingredients.find(x=>x.id===id); if(!ing) return;
+        const before=Number(ing.stock_qty)||0;
+        ing.stock_qty=round2(Math.max(0, before+delta));
+        name=ing.name;
+        if(isRestockBatch && batchCost>0){
+          const prevCost=Number(ing.cost_per_unit)||0;
+          const newAvgCost = before>0 ? round2(((before*prevCost)+(qty*batchCost))/(before+qty)) : batchCost;
+          if(!Array.isArray(ing.batches)) ing.batches=[];
+          ing.batches.push({ id:uid('batch'), date:Date.now(), qty, unitCost:batchCost, totalCost:round2(qty*batchCost), note:batchNote, recordedBy:currentUser.name });
+          ing.cost_per_unit = newAvgCost;
+          audit('Ingredient restocked (batch)', name, prevCost+'/unit', batchCost+'/unit batch → avg '+newAvgCost+'/unit'+(batchNote?' — '+batchNote:''));
+        } else {
+          audit('Manual stock adjustment', name, before, ing.stock_qty+' ('+reason+(notes?': '+notes:'')+')');
+        }
+      }
+      persistAll(); closeGeneric(); renderInvBody(); showToast('Adjustment applied to '+name);
+    }}
+  ]);
+  function updateBatchFieldsVisibility(){
+    const target=document.getElementById('adjTarget').value;
+    const direction=document.getElementById('adjDirection').value;
+    const kind=target.split(':')[0];
+    document.getElementById('adjBatchFields').style.display = (kind==='ingredient' && direction==='add') ? 'contents' : 'none';
+  }
+  document.getElementById('adjTarget').addEventListener('change', updateBatchFieldsVisibility);
+  document.getElementById('adjDirection').addEventListener('change', updateBatchFieldsVisibility);
+  const recalcTotal=()=>{
+    const qty=Number(document.getElementById('adjQty').value)||0;
+    const unitCost=Number(document.getElementById('adjBatchCost').value)||0;
+    document.getElementById('adjBatchTotal').value = round2(qty*unitCost);
+  };
+  document.getElementById('adjQty').addEventListener('input', recalcTotal);
+  document.getElementById('adjBatchCost').addEventListener('input', recalcTotal);
+  updateBatchFieldsVisibility();
+});
+
 /* ===================== ACCOUNTING MODULE ===================== */
 let currentAcctTab='overview';
 function financeDateRange(){
@@ -2223,9 +2594,15 @@ function exportFinanceCsv(){
 /* ---- Journal Entries ---- */
 function renderAcctJournal(body){
   const {from,to}=monthStartEnd();
-  body.innerHTML = dateFilterRowHtml('jFrom','jTo',from,to) + `<div style="text-align:right; margin-bottom:10px;"><button class="btn btn-amber" id="btnAddJE" style="width:auto; padding:8px 14px;">+ New Journal Entry</button></div><div id="journalTableWrap"></div>`;
+  body.innerHTML = dateFilterRowHtml('jFrom','jTo',from,to) + `<div style="text-align:right; margin-bottom:10px; display:flex; gap:8px; justify-content:flex-end;">
+    <button class="btn btn-outline-dark" id="btnExportJournalCsv" style="width:auto; padding:8px 14px;">Export CSV</button>
+    <button class="btn btn-outline-dark" id="btnExportJournalJson" style="width:auto; padding:8px 14px;">Export JSON</button>
+    <button class="btn btn-amber" id="btnAddJE" style="width:auto; padding:8px 14px;">+ New Journal Entry</button>
+  </div><div id="journalTableWrap"></div>`;
   ['jFrom','jTo'].forEach(id=>document.getElementById(id).addEventListener('input', renderJournalTable));
   document.getElementById('btnAddJE').addEventListener('click', openJournalEntryForm);
+  document.getElementById('btnExportJournalCsv').addEventListener('click', exportJournalCsv);
+  document.getElementById('btnExportJournalJson').addEventListener('click', exportJournalJson);
   renderJournalTable();
 }
 function renderJournalTable(){
@@ -2233,15 +2610,52 @@ function renderJournalTable(){
   const from=document.getElementById('jFrom').value, to=document.getElementById('jTo').value;
   const rows=journalInRange(from,to);
   if(rows.length===0){ wrap.innerHTML='<div class="empty-note">No journal entries in this range.</div>'; return; }
-  let html='<table class="data-table"><thead><tr><th>Date</th><th>Ref</th><th>Source</th><th>Memo</th><th>Account</th><th>Debit</th><th>Credit</th></tr></thead><tbody>';
+  let html='<table class="data-table"><thead><tr><th>Date</th><th>Ref</th><th>Source</th><th>Memo</th><th>Account</th><th>Debit</th><th>Credit</th><th>Balanced</th></tr></thead><tbody>';
   rows.forEach(j=>{
+    const totalDebit=round2(j.lines.reduce((s,l)=>s+l.debit,0));
+    const totalCredit=round2(j.lines.reduce((s,l)=>s+l.credit,0));
+    const balanced=Math.abs(totalDebit-totalCredit)<0.01;
     j.lines.forEach((l,idx)=>{
       const acc=accountById(l.accountId);
-      html+=`<tr>${idx===0?`<td rowspan="${j.lines.length}">${new Date(j.date).toLocaleDateString()}</td><td rowspan="${j.lines.length}">${escapeHtml(j.ref||'')}</td><td rowspan="${j.lines.length}">${j.source}</td><td rowspan="${j.lines.length}">${escapeHtml(j.memo||'')}</td>`:''}<td>${acc?escapeHtml(acc.code+' '+acc.name):'—'}</td><td>${l.debit>0?fmt(l.debit):''}</td><td>${l.credit>0?fmt(l.credit):''}</td></tr>`;
+      html+=`<tr>${idx===0?`<td rowspan="${j.lines.length}">${new Date(j.date).toLocaleDateString()}</td><td rowspan="${j.lines.length}">${escapeHtml(j.ref||'')}</td><td rowspan="${j.lines.length}">${j.source}</td><td rowspan="${j.lines.length}">${escapeHtml(j.memo||'')}</td>`:''}<td>${acc?escapeHtml(acc.code+' '+acc.name):'—'}</td><td>${l.debit>0?fmt(l.debit):''}</td><td>${l.credit>0?fmt(l.credit):''}</td>${idx===0?`<td rowspan="${j.lines.length}"><span class="${balanced?'text-good':'text-warn'}">${balanced?'✓ Balanced':'✗ Out of Balance'}</span></td>`:''}</tr>`;
     });
   });
   html+='</tbody></table>';
   wrap.innerHTML=html;
+}
+function exportJournalCsv(){
+  const from=document.getElementById('jFrom').value, to=document.getElementById('jTo').value;
+  const rows=journalInRange(from,to);
+  if(rows.length===0){ showToast('No journal entries to export in this range.'); return; }
+  const headers=['Date','Ref','Source','Memo','Account Code','Account Name','Debit','Credit'];
+  const csvRows=[headers.join(',')];
+  rows.forEach(j=>{
+    j.lines.forEach(l=>{
+      const acc=accountById(l.accountId);
+      csvRows.push([new Date(j.date).toISOString(), j.ref||'', j.source, j.memo||'', acc?acc.code:'', acc?acc.name:'', l.debit.toFixed(2), l.credit.toFixed(2)]
+        .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(','));
+    });
+  });
+  const blob=new Blob([csvRows.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='journal-entries-'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  audit('Journal export', 'journal', '', 'CSV exported');
+}
+function exportJournalJson(){
+  const from=document.getElementById('jFrom').value, to=document.getElementById('jTo').value;
+  const rows=journalInRange(from,to);
+  if(rows.length===0){ showToast('No journal entries to export in this range.'); return; }
+  const payload=rows.map(j=>({
+    id:j.id, ref:j.ref, date:new Date(j.date).toISOString(), source:j.source, memo:j.memo,
+    lines:j.lines.map(l=>{ const acc=accountById(l.accountId); return { accountCode:acc?acc.code:l.accountId, accountName:acc?acc.name:'', debit:l.debit, credit:l.credit }; }),
+    totalDebit: round2(j.lines.reduce((s,l)=>s+l.debit,0)), totalCredit: round2(j.lines.reduce((s,l)=>s+l.credit,0))
+  }));
+  const blob=new Blob([JSON.stringify(payload, null, 2)], {type:'application/json;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='journal-entries-'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  audit('Journal export', 'journal', '', 'JSON exported');
 }
 function openJournalEntryForm(){
   let lineCount=2;
@@ -2378,34 +2792,41 @@ function renderBSBody(){
 /* ---- Bank Reconciliation ---- */
 function renderAcctRecon(body){
   body.innerHTML = `
-    <div class="form-field full" style="max-width:280px; margin-bottom:12px;"><label>Bank Statement Ending Balance</label><input id="reconStmtBalance" type="number" step="0.01" placeholder="0.00"></div>
+    <div class="filters-row">
+      <div class="form-field"><label>Account</label><select id="reconAccount"><option value="1020">1020 Card Clearing</option><option value="1030">1030 Mobile Money</option></select></div>
+      <div class="form-field"><label>Bank Statement Ending Balance</label><input id="reconStmtBalance" type="number" step="0.01" placeholder="0.00"></div>
+    </div>
     <div id="reconStats"></div>
-    <div class="section-title">Bank Account Lines</div>
+    <div class="section-title" id="reconTableTitle">Account Lines</div>
     <div id="reconTableWrap"></div>
   `;
+  document.getElementById('reconAccount').addEventListener('change', renderReconBody);
   document.getElementById('reconStmtBalance').addEventListener('input', renderReconBody);
   renderReconBody();
 }
-function bankJournalLines(){
+function bankJournalLines(accountId){
   const out=[];
   journal.slice().sort((a,b)=>a.date-b.date).forEach(j=>{
-    j.lines.forEach((l,idx)=>{ if(l.accountId==='1010'){ out.push({je:j, line:l, idx}); } });
+    j.lines.forEach((l,idx)=>{ if(l.accountId===accountId){ out.push({je:j, line:l, idx}); } });
   });
   return out;
 }
 function renderReconBody(){
   const wrap=document.getElementById('reconTableWrap'); const stats=document.getElementById('reconStats'); if(!wrap) return;
-  const lines=bankJournalLines();
-  const bookBalance=accountBalance('1010', null);
+  const accountId=document.getElementById('reconAccount').value;
+  const acc=accountById(accountId);
+  document.getElementById('reconTableTitle').textContent=(acc?acc.code+' '+acc.name:'Account')+' Lines';
+  const lines=bankJournalLines(accountId);
+  const bookBalance=accountBalance(accountId, null);
   const clearedBalance=round2(lines.filter(x=>x.line.reconciled).reduce((s,x)=>s+x.line.debit-x.line.credit,0));
   const stmt=Number(document.getElementById('reconStmtBalance').value)||0;
   const variance=round2(stmt-clearedBalance);
   stats.innerHTML = `<div class="stat-grid">
-    <div class="stat-box"><div class="l">Book Balance (Bank Account)</div><div class="v">${fmt(bookBalance)}</div></div>
+    <div class="stat-box"><div class="l">Book Balance (${acc?escapeHtml(acc.name):''})</div><div class="v">${fmt(bookBalance)}</div></div>
     <div class="stat-box amber"><div class="l">Cleared / Reconciled</div><div class="v">${fmt(clearedBalance)}</div></div>
     <div class="stat-box ${Math.abs(variance)<0.01?'good':'warn'}"><div class="l">Variance vs Statement</div><div class="v">${fmt(variance)}</div></div>
   </div>`;
-  if(lines.length===0){ wrap.innerHTML='<div class="empty-note">No bank account transactions yet.</div>'; return; }
+  if(lines.length===0){ wrap.innerHTML='<div class="empty-note">No transactions in this account yet.</div>'; return; }
   wrap.innerHTML = `<table class="data-table"><thead><tr><th>Date</th><th>Ref</th><th>Memo</th><th>Debit</th><th>Credit</th><th>Reconciled</th></tr></thead><tbody>
     ${lines.map((x,i)=>`<tr><td>${new Date(x.je.date).toLocaleDateString()}</td><td>${escapeHtml(x.je.ref||'')}</td><td>${escapeHtml(x.je.memo||'')}</td><td>${x.line.debit>0?fmt(x.line.debit):''}</td><td>${x.line.credit>0?fmt(x.line.credit):''}</td><td><input type="checkbox" data-recon-idx="${i}" ${x.line.reconciled?'checked':''}></td></tr>`).join('')}
   </tbody></table>`;
@@ -2725,7 +3146,21 @@ function openItemForm(m){
     <div class="form-field"><label>Price</label><input id="ifPrice" type="number" min="0" step="0.5" value="${editing?m.price:0}"></div>
     <div class="form-field check"><input type="checkbox" id="ifVeg" ${editing&&m.veg?'checked':''}><label for="ifVeg">Vegetarian</label></div>
     <div class="form-field check"><input type="checkbox" id="ifAvail" ${(!editing||m.available)?'checked':''}><label for="ifAvail">Available</label></div>
+    <div class="form-field check"><input type="checkbox" id="ifBeverage" ${editing&&m.is_beverage?'checked':''}><label for="ifBeverage">Beverage item (for revenue reporting)</label></div>
+    <div class="form-field check full"><input type="checkbox" id="ifTrackStock" ${editing&&m.track_stock?'checked':''}><label for="ifTrackStock">Track Inventory (this item is stocked directly, e.g. bottled drinks)</label></div>
+    <div id="ifStockFields" style="display:${editing&&m.track_stock?'contents':'none'};">
+      <div class="form-field"><label>Stock Quantity</label><input id="ifStockQty" type="number" step="1" value="${editing&&m.stock_qty!=null?m.stock_qty:0}"></div>
+      <div class="form-field"><label>Low Stock Alert Below</label><input id="ifLowStockAlert" type="number" step="1" value="${editing&&m.low_stock_alert!=null?m.low_stock_alert:5}"></div>
+      <div class="form-field"><label>Unit</label><input id="ifUnit" placeholder="bottle, can, glass…" value="${editing&&m.unit?escapeHtml(m.unit):''}"></div>
+      <div class="form-field"><label>Cost per Unit (optional)</label><input id="ifCostPerUnit" type="number" min="0" step="0.01" value="${editing&&m.cost_per_unit!=null?m.cost_per_unit:0}"></div>
+    </div>
+    <div class="form-field full" style="margin-top:6px;">
+      <label>Recipe — Ingredients Used per Order (optional, e.g. a Lentil Sambusa uses raw lentils)</label>
+      <div id="ifRecipeRows"></div>
+      <button type="button" class="small-btn" id="ifAddRecipeRow" style="margin-top:6px;">+ Add Ingredient</button>
+    </div>
   </div>`;
+  const recipeState = editing && Array.isArray(m.recipe) ? m.recipe.map(r=>({...r})) : [];
   openGeneric(editing?'Edit Menu Item':'Add Menu Item', body, [
     {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
     {label:'Save', variant:'btn-amber', handler:()=>{
@@ -2735,14 +3170,43 @@ function openItemForm(m){
       const price=Number(document.getElementById('ifPrice').value)||0;
       const veg=document.getElementById('ifVeg').checked;
       const available=document.getElementById('ifAvail').checked;
+      const is_beverage=document.getElementById('ifBeverage').checked;
       const urlVal=document.getElementById('ifImageUrl').value.trim();
       const image = pendingImage || (urlVal || null);
+      const track_stock=document.getElementById('ifTrackStock').checked;
+      const stock_qty=Number(document.getElementById('ifStockQty').value)||0;
+      const low_stock_alert=Number(document.getElementById('ifLowStockAlert').value)||0;
+      const unit=document.getElementById('ifUnit').value.trim();
+      const cost_per_unit=Number(document.getElementById('ifCostPerUnit').value)||0;
+      const recipe = recipeState.filter(r=>r.ingredientId && Number(r.qty)>0).map(r=>({ingredientId:r.ingredientId, qty:Number(r.qty)}));
       if(!name){ showToast('Item name is required.'); return; }
-      if(editing){ Object.assign(m, {name,description,category,price,veg,available,image}); audit('Menu item updated', name, '', 'edited'); }
-      else { menu.push({id:uid('m'), name, description, category, price, veg, available, image}); audit('Menu item created', name, '', 'created'); }
+      if(editing){ Object.assign(m, {name,description,category,price,veg,available,is_beverage,image,track_stock,stock_qty,low_stock_alert,unit,cost_per_unit,recipe}); audit('Menu item updated', name, '', 'edited'); }
+      else { menu.push({id:uid('m'), name, description, category, price, veg, available, is_beverage, image, track_stock, stock_qty, low_stock_alert, unit, cost_per_unit, recipe}); audit('Menu item created', name, '', 'created'); }
       persistAll(); closeGeneric(); renderSettings(); showToast('Menu item saved');
     }}
   ]);
+  function renderRecipeRows(){
+    const wrap=document.getElementById('ifRecipeRows');
+    if(recipeState.length===0){ wrap.innerHTML='<div class="hint">No ingredients linked — this item will not deplete raw stock.</div>'; return; }
+    wrap.innerHTML = recipeState.map((r,i)=>`
+      <div class="form-grid" style="grid-template-columns:2fr 1fr auto; gap:8px; margin-bottom:6px; align-items:center;">
+        <select class="recipe-ing" data-ri="${i}">
+          <option value="">Select ingredient…</option>
+          ${ingredients.map(ing=>`<option value="${ing.id}" ${r.ingredientId===ing.id?'selected':''}>${escapeHtml(ing.name)} (${escapeHtml(ing.unit)})</option>`).join('')}
+        </select>
+        <input type="number" min="0" step="0.1" class="recipe-qty" data-ri="${i}" placeholder="Qty per order" value="${r.qty||''}">
+        <button type="button" class="small-btn danger" data-remove-ri="${i}">Remove</button>
+      </div>
+    `).join('');
+    wrap.querySelectorAll('.recipe-ing').forEach(sel=>sel.addEventListener('change', ()=>{ recipeState[+sel.dataset.ri].ingredientId=sel.value; }));
+    wrap.querySelectorAll('.recipe-qty').forEach(inp=>inp.addEventListener('input', ()=>{ recipeState[+inp.dataset.ri].qty=Number(inp.value)||0; }));
+    wrap.querySelectorAll('[data-remove-ri]').forEach(b=>b.addEventListener('click', ()=>{ recipeState.splice(+b.dataset.removeRi,1); renderRecipeRows(); }));
+  }
+  document.getElementById('ifAddRecipeRow').addEventListener('click', ()=>{ recipeState.push({ingredientId:'', qty:0}); renderRecipeRows(); });
+  renderRecipeRows();
+  document.getElementById('ifTrackStock').addEventListener('change', (e)=>{
+    document.getElementById('ifStockFields').style.display = e.target.checked ? 'contents' : 'none';
+  });
   const fileInput=document.getElementById('ifImageFile');
   const urlInput=document.getElementById('ifImageUrl');
   function refreshPreview(src, placeholderText){
