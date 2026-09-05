@@ -511,6 +511,7 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
 
     <div class="view" id="view-history"><div class="pad">
       <div class="head-row"><h2>Order History</h2></div>
+      <div id="histSummary"></div>
       <div class="filters-row" id="histFilters"></div>
       <div id="histTableWrap"></div>
     </div></div>
@@ -518,11 +519,6 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
     <div class="view" id="view-cash"><div class="pad">
       <div class="head-row"><h2>Cash &amp; Shifts</h2></div>
       <div id="cashBody"></div>
-    </div></div>
-
-    <div class="view" id="view-dashboard"><div class="pad">
-      <div class="head-row"><h2 id="dashTitle">Dashboard</h2></div>
-      <div id="dashBody"></div>
     </div></div>
 
     <div class="view" id="view-inventory"><div class="pad">
@@ -807,6 +803,8 @@ function persistAll(){
 
 /* ---- Supabase sync (business-scoped; RLS enforces isolation server-side) ---- */
 let supabaseSyncTimer=null;
+let lastSyncedAt=null;
+let lastSyncError=null;
 function queueSupabaseSync(){
   if(!currentBusinessId) return;
   clearTimeout(supabaseSyncTimer);
@@ -821,7 +819,7 @@ async function syncTable(table, rows){
     } else {
       await sb.from(table).delete().eq('business_id', currentBusinessId);
     }
-  }catch(e){ console.warn('Supabase sync failed for', table, e); }
+  }catch(e){ console.warn('Supabase sync failed for', table, e); throw e; }
 }
 async function doSyncToSupabase(){
   if(!currentBusinessId) return;
@@ -841,8 +839,24 @@ async function doSyncToSupabase(){
     await syncTable('orders', orderRows);
     await syncTable('shift_handovers', handovers.map(h=>({id:h.id, business_id:currentBusinessId, from_staff_id:h.waiterId||null, to_staff_id:h.confirmedBy?null:null, shift_type:'waiter', cash_amount:h.amount||0, meta:h})));
     await syncTable('audit_log', auditLog.map(a=>({id:a.id, business_id:currentBusinessId, actor:a.user, action:a.action, target:a.ref, from_value:a.prevValue, to_value:a.newValue, meta:a})));
-  }catch(e){ console.warn('Supabase sync error', e); }
+    lastSyncedAt=Date.now(); lastSyncError=null;
+    const ind=document.getElementById('syncStatusIndicator'); if(ind) renderSyncStatus();
+  }catch(e){
+    console.warn('Supabase sync error', e);
+    lastSyncError = (e && e.message) ? e.message : 'Unknown sync error';
+    const ind=document.getElementById('syncStatusIndicator'); if(ind) renderSyncStatus();
+  }
 }
+async function flushSupabaseSync(){
+  clearTimeout(supabaseSyncTimer);
+  await doSyncToSupabase();
+}
+function renderSyncStatus(){
+  const el=document.getElementById('syncStatusIndicator'); if(!el) return;
+  if(lastSyncError){ el.innerHTML = `<span style="color:var(--rust);">⚠ Sync issue: ${escapeHtml(lastSyncError)}</span>`; return; }
+  el.innerHTML = lastSyncedAt ? `<span style="color:var(--sage);">✓ All data saved to Supabase — last synced ${new Date(lastSyncedAt).toLocaleTimeString()}</span>` : `<span style="color:var(--slate-dim);">Syncing…</span>`;
+}
+window.addEventListener('beforeunload', ()=>{ if(currentBusinessId) doSyncToSupabase(); });
 async function loadBusinessData(){
   const { data:biz, error:bizErr } = await sb.from('businesses').select('*').eq('owner_id', authUser.id).maybeSingle();
   if(bizErr || !biz){ throw new Error(bizErr ? bizErr.message : 'No business record found for this account.'); }
@@ -1145,7 +1159,6 @@ const NAV = [
   {key:'floor', label:'Floor', roles:['manager','cashier','waiter']},
   {key:'history', label:'History', roles:['manager','cashier','waiter','accountant']},
   {key:'cash', label:'Cash', roles:['manager','cashier','waiter']},
-  {key:'dashboard', label:'Dashboard', roles:['manager','cashier','waiter','accountant']},
   {key:'inventory', label:'Inventory', roles:['manager']},
   {key:'finance', label:'Finance / Journal Entries', roles:['accountant']},
   {key:'audit', label:'Audit', roles:['manager','accountant']},
@@ -1180,7 +1193,6 @@ function switchView(view){
   if(view==='floor') renderFloor();
   if(view==='history') renderHistory();
   if(view==='cash') renderCash();
-  if(view==='dashboard') renderDashboard();
   if(view==='inventory'){ if(!requireOrToast('manageInventory')){ switchView('floor'); return; } renderInventory(); }
   if(view==='finance'){ if(!requireOrToast('viewFinance')){ switchView('floor'); return; } renderFinance(); }
   if(view==='audit'){ if(!requireOrToast('viewAudit')){ switchView('floor'); return; } renderAudit(); }
@@ -1821,6 +1833,7 @@ function renderHistory(){
   renderHistoryTable();
 }
 function renderHistoryTable(){
+  const summaryEl=document.getElementById('histSummary');
   const wrap=document.getElementById('histTableWrap');
   const isOwnOnly=currentUser.role==='waiter';
   let rows=history.slice().sort((a,b)=>b.datetime-a.datetime);
@@ -1835,14 +1848,15 @@ function renderHistoryTable(){
   if(fWaiter && fWaiter!=='all') rows=rows.filter(r=>r.waiter===fWaiter);
   if(fCashier && fCashier!=='all') rows=rows.filter(r=>r.cashierUser===fCashier);
   if(fDate) rows=rows.filter(r=>new Date(r.datetime).toISOString().slice(0,10)===fDate);
-  if(rows.length===0){ wrap.innerHTML='<div class="empty-note">No orders match.</div>'; return; }
   const validRows = rows.filter(r=>!r.voided);
   const grandTotal = validRows.reduce((s,r)=>s+r.grandTotal,0);
-  const summaryBar = `<div class="due-box" style="margin-bottom:14px;">
-    <div class="lbl">Grand Total — ${rows.length} order${rows.length!==1?'s':''} shown${validRows.length!==rows.length?` (${rows.length-validRows.length} voided excluded)`:''}</div>
-    <div class="amt">${fmt(grandTotal)}</div>
-  </div>`;
-  wrap.innerHTML=summaryBar+`<table class="data-table"><thead><tr><th>Receipt</th><th>Table</th><th>Waiter</th><th>Processed By</th><th>Total</th><th>Time</th><th>Payment</th><th></th></tr></thead><tbody>
+  summaryEl.innerHTML = `<div class="stat-grid" style="margin-bottom:6px;">
+    <div class="stat-box"><div class="l">Total Revenue</div><div class="v">${fmt(grandTotal)}</div></div>
+    <div class="stat-box"><div class="l">Total Orders</div><div class="v">${validRows.length}</div></div>
+  </div>
+  <p class="hint" style="margin-bottom:14px;">${rows.length} order${rows.length!==1?'s':''} shown${validRows.length!==rows.length?` (${rows.length-validRows.length} voided excluded from totals)`:''}</p>`;
+  if(rows.length===0){ wrap.innerHTML='<div class="empty-note">No orders match.</div>'; return; }
+  wrap.innerHTML=`<table class="data-table"><thead><tr><th>Receipt</th><th>Table</th><th>Waiter</th><th>Processed By</th><th>Total</th><th>Time</th><th>Payment</th><th></th></tr></thead><tbody>
     ${rows.map(r=>`<tr>
       <td>${r.receiptNo}${r.voided?'<span class="badge-voided">Voided</span>':''}</td>
       <td>T${r.tableNum}</td><td>${escapeHtml(r.waiter||'—')}</td><td>${escapeHtml(r.cashierUser)}</td>
@@ -2191,68 +2205,6 @@ function managerCashOverviewHtml(){
   return html;
 }
 function wireManagerOverview(){ /* read-only, no wiring needed */ }
-
-/* ===================== DASHBOARD ===================== */
-function renderDashboard(){
-  document.getElementById('dashTitle').textContent = currentUser.role==='waiter' ? 'My Dashboard' : 'Dashboard';
-  const body=document.getElementById('dashBody');
-  const todayStr=new Date().toDateString();
-  const todays = history.filter(r=>!r.voided && new Date(r.datetime).toDateString()===todayStr);
-  if(currentUser.role==='waiter'){
-    const mine = todays.filter(r=>r.waiter===currentUser.name);
-    const shift=getOpenWaiterShift(currentUser.id);
-    const cashSales=mine.filter(r=>r.paymentMethod==='cash').reduce((s,r)=>s+r.grandTotal,0);
-    const cardSales=mine.filter(r=>r.paymentMethod==='card').reduce((s,r)=>s+r.grandTotal,0);
-    const upiSales=mine.filter(r=>r.paymentMethod==='upi').reduce((s,r)=>s+r.grandTotal,0);
-    const myTables = visibleTables().length;
-    const activeCount = activeOrders.filter(o=>{ const t=tableById(o.tableId); return t && t.waiterId===currentUser.id; }).length;
-    body.innerHTML = `
-      <div class="summary-grid">
-        <div class="shift-card"><div class="section-title" style="margin-top:0;">My Tables</div><div class="v" style="font-family:var(--font-mono); font-size:24px; color:var(--amber);">${myTables}</div></div>
-        <div class="shift-card"><div class="section-title" style="margin-top:0;">Active Orders</div><div class="v" style="font-family:var(--font-mono); font-size:24px; color:var(--amber);">${activeCount}</div></div>
-      </div>
-      <div class="stat-grid">
-        <div class="stat-box"><div class="l">Today's Sales</div><div class="v">${fmt(mine.reduce((s,r)=>s+r.grandTotal,0))}</div></div>
-        <div class="stat-box"><div class="l">Cash Sales</div><div class="v">${fmt(cashSales)}</div></div>
-        <div class="stat-box"><div class="l">Card Sales</div><div class="v">${fmt(cardSales)}</div></div>
-        <div class="stat-box"><div class="l">UPI Sales</div><div class="v">${fmt(upiSales)}</div></div>
-      </div>
-      ${shift?`<div class="section-title">Current Shift Cash</div><div class="stat-grid">
-        <div class="stat-box"><div class="l">Cash Collected</div><div class="v">${fmt(shift.cashCollected)}</div></div>
-        <div class="stat-box amber"><div class="l">Cash In Hand</div><div class="v">${fmt(waiterCashInHand(shift))}</div></div>
-        <div class="stat-box"><div class="l">Handed to Cashier</div><div class="v">${fmt(handoversForShift(shift.id).filter(h=>h.status==='confirmed').reduce((s,h)=>s+h.amount,0))}</div></div>
-      </div>`:'<p class="hint">No shift currently open.</p>'}
-    `;
-    return;
-  }
-  const revenue=todays.reduce((s,r)=>s+r.grandTotal,0);
-  const count=todays.length;
-  const avg=count>0?revenue/count:0;
-  const discounts=todays.reduce((s,r)=>s+r.discountAmount,0);
-  const tax=todays.reduce((s,r)=>s+r.tax,0);
-  const sc=todays.reduce((s,r)=>s+r.serviceCharge,0);
-  const tips=todays.reduce((s,r)=>s+r.tip,0);
-  const byMethod={cash:0,card:0,upi:0,split:0};
-  todays.forEach(r=>{ byMethod[r.paymentMethod]=(byMethod[r.paymentMethod]||0)+r.grandTotal; });
-  const maxVal=Math.max(1, ...Object.values(byMethod));
-  const cashWithWaiters = users.filter(u=>u.role==='waiter').reduce((s,u)=>s+currentWaiterHeldCash(u.id),0);
-  const cashWithCashier = users.filter(u=>u.role==='cashier'||u.role==='manager').reduce((s,u)=>s+currentCashierHeldCash(u.id),0);
-  body.innerHTML = `
-    <div class="stat-grid">
-      <div class="stat-box"><div class="l">Total Revenue Today</div><div class="v">${fmt(revenue)}</div></div>
-      <div class="stat-box"><div class="l">Orders Today</div><div class="v">${count}</div></div>
-      <div class="stat-box"><div class="l">Discounts Given</div><div class="v">${fmt(discounts)}</div></div>
-      <div class="stat-box"><div class="l">Tax Collected</div><div class="v">${fmt(tax)}</div></div>
-      <div class="stat-box"><div class="l">Service Charges</div><div class="v">${fmt(sc)}</div></div>
-      <div class="stat-box"><div class="l">Tips</div><div class="v">${fmt(tips)}</div></div>
-      <div class="stat-box amber"><div class="l">Cash With Waiters</div><div class="v">${fmt(cashWithWaiters)}</div></div>
-      <div class="stat-box amber"><div class="l">Cash With Cashier</div><div class="v">${fmt(cashWithCashier)}</div></div>
-      <div class="stat-box amber"><div class="l">Total Cash In System</div><div class="v">${fmt(cashWithWaiters+cashWithCashier)}</div></div>
-    </div>
-    <div class="section-title">Revenue by Payment Method</div>
-    ${Object.entries(byMethod).map(([k,v])=>`<div class="pm-bar-row"><div class="pm-bar-label">${k}</div><div class="pm-bar-track"><div class="pm-bar-fill" style="width:${(v/maxVal*100)}%;"></div></div><div class="pm-bar-val">${fmt(v)}</div></div>`).join('')}
-  `;
-}
 
 /* ===================== INVENTORY (MANAGER LOGIN — operational quantities only) ===================== */
 let currentInvTab='usage';
@@ -2932,7 +2884,18 @@ function renderSettings(){
     <div class="shift-card">
       <div class="section-title" style="margin-top:0;">Business Account</div>
       <p class="hint">Signed in as ${escapeHtml(authUser?authUser.email:'')}</p>
+      <p class="hint" id="syncStatusIndicator" style="margin-top:6px;"></p>
       <button class="btn btn-outline-dark" id="btnSignOutAccount" style="width:auto; padding:9px 18px; margin-top:8px;">Sign Out of Business Account</button>
+    </div>
+    <div class="shift-card">
+      <div class="section-title" style="margin-top:0;">Data Backup &amp; Export</div>
+      <p class="hint">All data already saves continuously to Supabase, but you can also download a local copy anytime — useful before a big change, or just as a second safety net.</p>
+      <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:8px;">
+        <button class="btn btn-amber" id="btnBackupJson" style="width:auto; padding:9px 16px;">Download Full Backup (JSON)</button>
+        <button class="btn btn-outline-dark" id="btnExportMenuCsv" style="width:auto; padding:9px 16px;">Menu Items (CSV)</button>
+        <button class="btn btn-outline-dark" id="btnExportIngredientsCsv" style="width:auto; padding:9px 16px;">Ingredients (CSV)</button>
+        <button class="btn btn-outline-dark" id="btnExportHistoryCsv" style="width:auto; padding:9px 16px;">Sales History (CSV)</button>
+      </div>
     </div>
     <div class="shift-card">
       <div class="section-title" style="margin-top:0;">Restaurant Info</div>
@@ -2993,8 +2956,15 @@ function renderSettings(){
       <button class="btn btn-outline" id="btnSystemReset" style="margin-top:12px; width:260px; border-color:var(--rust); color:var(--rust);">Reset Shift / Clear History</button>
     </div>` : ''}
   `;
+  renderSyncStatus();
+  document.getElementById('btnBackupJson').addEventListener('click', downloadFullJsonBackup);
+  document.getElementById('btnExportMenuCsv').addEventListener('click', downloadMenuItemsCsv);
+  document.getElementById('btnExportIngredientsCsv').addEventListener('click', downloadIngredientsCsv);
+  document.getElementById('btnExportHistoryCsv').addEventListener('click', downloadHistoryCsv);
   document.getElementById('btnSignOutAccount').onclick=async ()=>{
     if(!confirm('Sign out of this business account? You will need to sign in again to access the data.')) return;
+    showToast('Saving latest changes before sign out…');
+    await flushSupabaseSync();
     await sb.auth.signOut();
   };
   document.querySelectorAll('.theme-swatch').forEach(sw=>{
@@ -3069,6 +3039,58 @@ function renderSettings(){
   });
   const resetBtn=document.getElementById('btnSystemReset');
   if(resetBtn) resetBtn.onclick=confirmSystemReset;
+}
+function triggerDownload(filename, content, mime){
+  const blob=new Blob([content], {type:mime+';charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function csvEscape(v){ return `"${String(v==null?'':v).replace(/"/g,'""')}"`; }
+function downloadFullJsonBackup(){
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    business: { name: settings.restaurantName, settings },
+    users, tables, menu, ingredients,
+    activeOrders, history, handovers, auditLog,
+    ledgerAccounts, journal, exchangeRates, taxPeriods,
+    waiterShifts, cashierShifts
+  };
+  triggerDownload('backup-'+settings.restaurantName.replace(/[^a-z0-9]+/gi,'-').toLowerCase()+'-'+new Date().toISOString().slice(0,10)+'.json', JSON.stringify(payload, null, 2), 'application/json');
+  audit('Data backup exported', 'settings', '', 'Full JSON backup downloaded');
+  showToast('Full backup downloaded.');
+}
+function downloadMenuItemsCsv(){
+  if(menu.length===0){ showToast('No menu items to export.'); return; }
+  const headers=['Name','Category','Description','Price','Vegetarian','Available','Beverage','Track Stock','Stock Qty','Low Stock Alert','Unit','Cost Per Unit'];
+  const rows=[headers.join(',')];
+  menu.forEach(m=>rows.push([m.name,m.category,m.description,m.price,m.veg?'Yes':'No',m.available?'Yes':'No',m.is_beverage?'Yes':'No',m.track_stock?'Yes':'No',m.stock_qty!=null?m.stock_qty:'',m.low_stock_alert!=null?m.low_stock_alert:'',m.unit||'',m.cost_per_unit!=null?m.cost_per_unit:''].map(csvEscape).join(',')));
+  triggerDownload('menu-items-'+new Date().toISOString().slice(0,10)+'.csv', rows.join('\n'), 'text/csv');
+  audit('Data backup exported', 'settings', '', 'Menu items CSV downloaded');
+  showToast('Menu items CSV downloaded.');
+}
+function downloadIngredientsCsv(){
+  if(ingredients.length===0){ showToast('No ingredients to export.'); return; }
+  const headers=['Name','Unit','Stock Qty','Low Stock Alert','Avg Cost Per Unit'];
+  const rows=[headers.join(',')];
+  ingredients.forEach(i=>rows.push([i.name,i.unit,i.stock_qty,i.low_stock_alert,i.cost_per_unit].map(csvEscape).join(',')));
+  triggerDownload('ingredients-'+new Date().toISOString().slice(0,10)+'.csv', rows.join('\n'), 'text/csv');
+  audit('Data backup exported', 'settings', '', 'Ingredients CSV downloaded');
+  showToast('Ingredients CSV downloaded.');
+}
+function downloadHistoryCsv(){
+  if(history.length===0){ showToast('No sales history to export.'); return; }
+  const headers=['Receipt','Date','Table','Waiter','Processed By','Subtotal','Discount','Tax','Service Charge','Tip','Grand Total','Payment Method','Voided'];
+  const rows=[headers.join(',')];
+  history.slice().sort((a,b)=>a.datetime-b.datetime).forEach(r=>rows.push([
+    r.receiptNo, new Date(r.datetime).toISOString(), 'T'+r.tableNum, r.waiter||'', r.cashierUser||'',
+    r.subtotal.toFixed(2), r.discountAmount.toFixed(2), r.tax.toFixed(2), r.serviceCharge.toFixed(2), r.tip.toFixed(2), r.grandTotal.toFixed(2),
+    r.paymentMethod||'', r.voided?'Yes':'No'
+  ].map(csvEscape).join(',')));
+  triggerDownload('sales-history-'+new Date().toISOString().slice(0,10)+'.csv', rows.join('\n'), 'text/csv');
+  audit('Data backup exported', 'settings', '', 'Sales history CSV downloaded');
+  showToast('Sales history CSV downloaded.');
 }
 function confirmSystemReset(){
   if(!requireOrToast('systemReset')) return;
