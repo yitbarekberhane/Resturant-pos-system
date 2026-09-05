@@ -1850,11 +1850,32 @@ function renderHistoryTable(){
   if(fDate) rows=rows.filter(r=>new Date(r.datetime).toISOString().slice(0,10)===fDate);
   const validRows = rows.filter(r=>!r.voided);
   const grandTotal = validRows.reduce((s,r)=>s+r.grandTotal,0);
-  summaryEl.innerHTML = `<div class="stat-grid" style="margin-bottom:6px;">
+  let summaryHtml = `<div class="stat-grid" style="margin-bottom:6px;">
     <div class="stat-box"><div class="l">Total Revenue</div><div class="v">${fmt(grandTotal)}</div></div>
-    <div class="stat-box"><div class="l">Total Orders</div><div class="v">${validRows.length}</div></div>
-  </div>
-  <p class="hint" style="margin-bottom:14px;">${rows.length} order${rows.length!==1?'s':''} shown${validRows.length!==rows.length?` (${rows.length-validRows.length} voided excluded from totals)`:''}</p>`;
+    <div class="stat-box"><div class="l">Total Orders</div><div class="v">${validRows.length}</div></div>`;
+  if(!isOwnOnly){
+    const discounts=validRows.reduce((s,r)=>s+r.discountAmount,0);
+    const tax=validRows.reduce((s,r)=>s+r.tax,0);
+    const sc=validRows.reduce((s,r)=>s+r.serviceCharge,0);
+    const tips=validRows.reduce((s,r)=>s+r.tip,0);
+    summaryHtml += `
+    <div class="stat-box"><div class="l">Discounts Given</div><div class="v">${fmt(discounts)}</div></div>
+    <div class="stat-box"><div class="l">Tax Collected</div><div class="v">${fmt(tax)}</div></div>
+    <div class="stat-box"><div class="l">Service Charges</div><div class="v">${fmt(sc)}</div></div>
+    <div class="stat-box"><div class="l">Tips</div><div class="v">${fmt(tips)}</div></div>`;
+  }
+  summaryHtml += `</div>`;
+  if(!isOwnOnly){
+    const cashWithWaiters = users.filter(u=>u.role==='waiter').reduce((s,u)=>s+currentWaiterHeldCash(u.id),0);
+    const cashWithCashier = users.filter(u=>u.role==='cashier'||u.role==='manager').reduce((s,u)=>s+currentCashierHeldCash(u.id),0);
+    summaryHtml += `<div class="stat-grid" style="margin-top:8px; margin-bottom:6px;">
+      <div class="stat-box amber"><div class="l">Cash With Waiters</div><div class="v">${fmt(cashWithWaiters)}</div></div>
+      <div class="stat-box amber"><div class="l">Cash With Cashier</div><div class="v">${fmt(cashWithCashier)}</div></div>
+      <div class="stat-box amber"><div class="l">Total Cash In System</div><div class="v">${fmt(cashWithWaiters+cashWithCashier)}</div></div>
+    </div>
+    <p class="hint" style="margin-bottom:2px;">Cash figures reflect what's currently held right now, independent of the filters below. Revenue figures reflect the filtered results.</p>`;
+  }
+  summaryEl.innerHTML = summaryHtml + `<p class="hint" style="margin-bottom:14px;">${rows.length} order${rows.length!==1?'s':''} shown${validRows.length!==rows.length?` (${rows.length-validRows.length} voided excluded from totals)`:''}</p>`;
   if(rows.length===0){ wrap.innerHTML='<div class="empty-note">No orders match.</div>'; return; }
   wrap.innerHTML=`<table class="data-table"><thead><tr><th>Receipt</th><th>Table</th><th>Waiter</th><th>Processed By</th><th>Total</th><th>Time</th><th>Payment</th><th></th></tr></thead><tbody>
     ${rows.map(r=>`<tr>
