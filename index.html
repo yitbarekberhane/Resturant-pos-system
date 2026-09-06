@@ -1607,16 +1607,17 @@ function confirmCancelOrder(order){
     }}
   ]);
 }
-function doCancelOrder(order, manager){
+async function doCancelOrder(order, manager){
   const t=tableById(order.tableId);
   const totals=calcTotals(order);
   audit('Order cancelled', 'order:'+order.id, `${order.items.length} item(s), ${fmt(totals.grandTotal)}`, `cancelled — authorized by ${manager.name}, requested by ${currentUser.name}`);
   activeOrders=activeOrders.filter(o=>o.id!==order.id);
   persistAll(); renderFloor();
+  await flushSupabaseSync();
   const remaining=getTableOrders(t.id);
   if(remaining.length>0 && currentTableId===t.id){ currentOrderId=remaining[0].id; renderOrderView(); }
   else { switchView('floor'); }
-  showToast('Order cancelled');
+  showToast(lastSyncError ? 'Order cancelled — but cloud save failed, will retry automatically' : 'Order cancelled and saved');
 }
 
 /* ===================== SHIFT LOOKUPS ===================== */
@@ -1738,7 +1739,7 @@ function updateSplitRemaining(totals){
 document.getElementById('checkoutBody').addEventListener('click', (e)=>{
   if(e.target && e.target.id==='btnAddSplit'){ splitParts.push({method:'card', amount:0}); renderSplitRows(); }
 });
-document.getElementById('btnConfirmPay').addEventListener('click', ()=>{
+document.getElementById('btnConfirmPay').addEventListener('click', async ()=>{
   if(!requireOrToast('processPayment')) return;
   const order=activeOrders.find(o=>o.id===checkoutOrderId);
   if(!order) return;
@@ -1796,14 +1797,20 @@ document.getElementById('btnConfirmPay').addEventListener('click', ()=>{
 
   activeOrders=activeOrders.filter(o=>o.id!==order.id);
   const remaining=getTableOrders(t.id);
-  if(remaining.length===0){} // table becomes available automatically via getTableStatus
   persistAll();
+
+  const confirmBtn=document.getElementById('btnConfirmPay');
+  confirmBtn.disabled=true; confirmBtn.textContent='Saving to cloud…';
+  await flushSupabaseSync();
+  confirmBtn.disabled=false; confirmBtn.textContent='Confirm Payment';
+
   closeModal('modalCheckout');
   renderFloor();
   if(remaining.length>0 && currentView==='order'){ currentOrderId=remaining[0].id; renderOrderView(); }
   else { switchView('floor'); }
   openReceiptFromRecord(record);
-  showToast('Payment confirmed — table freed once fully paid');
+  if(lastSyncError){ showToast('Payment recorded — but cloud save failed ('+lastSyncError+'). It will retry automatically; avoid closing this tab until it succeeds.'); }
+  else { showToast('Payment confirmed and saved to Supabase — table freed once fully paid'); }
 });
 
 /* ===================== RECEIPT ===================== */
