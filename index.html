@@ -805,10 +805,18 @@ function persistAll(){
 let supabaseSyncTimer=null;
 let lastSyncedAt=null;
 let lastSyncError=null;
+let syncInProgress=false;
+const SYNC_TIMEOUT_MS=20000;
 function queueSupabaseSync(){
   if(!currentBusinessId) return;
   clearTimeout(supabaseSyncTimer);
   supabaseSyncTimer=setTimeout(doSyncToSupabase, 500);
+}
+function withTimeout(promise, ms, label){
+  return Promise.race([
+    promise,
+    new Promise((_, reject)=>setTimeout(()=>reject(new Error((label||'Request')+' timed out after '+Math.round(ms/1000)+'s — check your internet connection')), ms))
+  ]);
 }
 async function syncTable(table, rows){
   const ids = rows.map(r=>r.id);
@@ -819,32 +827,39 @@ async function syncTable(table, rows){
     } else {
       await sb.from(table).delete().eq('business_id', currentBusinessId);
     }
-  }catch(e){ console.warn('Supabase sync failed for', table, e); throw e; }
+  }catch(e){ throw new Error('"'+table+'" table — '+((e&&e.message)||'sync failed')); }
+}
+async function runFullSync(){
+  await sb.from('businesses').update({ name:settings.restaurantName, settings_json:settings }).eq('id', currentBusinessId);
+  await syncTable('staff_users', users.map(u=>({id:u.id, business_id:currentBusinessId, name:u.name, role:u.role, pin:u.pin, meta:u})));
+  await syncTable('restaurant_tables', tables.map(t=>({id:t.id, business_id:currentBusinessId, num:t.num, capacity:t.capacity, zone:t.zone==='outdoor'?'outdoor':'indoor', waiter_id:t.waiterId||null, meta:t})));
+  await syncTable('menu_items', menu.map(m=>({id:m.id, business_id:currentBusinessId, category:m.category||'', name:m.name, description:m.description||'', price:m.price||0, veg:!!m.veg, available:!!m.available, photo_url:m.photo||m.photoUrl||null, meta:m})));
+  await syncTable('ingredients', ingredients.map(i=>({id:i.id, business_id:currentBusinessId, name:i.name, unit:i.unit||'', stock_qty:i.stock_qty||0, low_stock_alert:i.low_stock_alert||0, cost_per_unit:i.cost_per_unit||0, meta:i})));
+  const orderRows = [
+    ...activeOrders.map(o=>({id:o.id, business_id:currentBusinessId, status:'open', table_num:(tableById(o.tableId)||{}).num||null, waiter_name:o.waiterName||'', items:o.items||[], grand_total:0, meta:o})),
+    ...history.map(r=>({id:r.id, business_id:currentBusinessId, status:r.voided?'voided':'paid', table_num:r.tableNum||null, waiter_name:r.waiter||'', items:r.items||[],
+      subtotal:r.subtotal||0, discount_amount:r.discountAmount||0, tax:r.tax||0, service_charge:r.serviceCharge||0, tip:r.tip||0, grand_total:r.grandTotal||0,
+      payment_method:r.paymentMethod||null, payment_detail:r.paymentDetail||null, receipt_no:r.receiptNo||null,
+      voided:!!r.voided, voided_by:r.voidedBy||null, voided_at:r.voidedAt?new Date(r.voidedAt).toISOString():null, meta:r}))
+  ];
+  await syncTable('orders', orderRows);
+  await syncTable('shift_handovers', handovers.map(h=>({id:h.id, business_id:currentBusinessId, from_staff_id:h.waiterId||null, to_staff_id:h.confirmedBy?null:null, shift_type:'waiter', cash_amount:h.amount||0, meta:h})));
+  await syncTable('audit_log', auditLog.map(a=>({id:a.id, business_id:currentBusinessId, actor:a.user, action:a.action, target:a.ref, from_value:a.prevValue, to_value:a.newValue, meta:a})));
 }
 async function doSyncToSupabase(){
   if(!currentBusinessId) return;
+  if(syncInProgress) return;
+  syncInProgress=true;
+  renderSyncStatus();
   try{
-    await sb.from('businesses').update({ name:settings.restaurantName, settings_json:settings }).eq('id', currentBusinessId);
-    await syncTable('staff_users', users.map(u=>({id:u.id, business_id:currentBusinessId, name:u.name, role:u.role, pin:u.pin, meta:u})));
-    await syncTable('restaurant_tables', tables.map(t=>({id:t.id, business_id:currentBusinessId, num:t.num, capacity:t.capacity, zone:t.zone==='outdoor'?'outdoor':'indoor', waiter_id:t.waiterId||null, meta:t})));
-    await syncTable('menu_items', menu.map(m=>({id:m.id, business_id:currentBusinessId, category:m.category||'', name:m.name, description:m.description||'', price:m.price||0, veg:!!m.veg, available:!!m.available, photo_url:m.photo||m.photoUrl||null, meta:m})));
-    await syncTable('ingredients', ingredients.map(i=>({id:i.id, business_id:currentBusinessId, name:i.name, unit:i.unit||'', stock_qty:i.stock_qty||0, low_stock_alert:i.low_stock_alert||0, cost_per_unit:i.cost_per_unit||0, meta:i})));
-    const orderRows = [
-      ...activeOrders.map(o=>({id:o.id, business_id:currentBusinessId, status:'open', table_num:(tableById(o.tableId)||{}).num||null, waiter_name:o.waiterName||'', items:o.items||[], grand_total:0, meta:o})),
-      ...history.map(r=>({id:r.id, business_id:currentBusinessId, status:r.voided?'voided':'paid', table_num:r.tableNum||null, waiter_name:r.waiter||'', items:r.items||[],
-        subtotal:r.subtotal||0, discount_amount:r.discountAmount||0, tax:r.tax||0, service_charge:r.serviceCharge||0, tip:r.tip||0, grand_total:r.grandTotal||0,
-        payment_method:r.paymentMethod||null, payment_detail:r.paymentDetail||null, receipt_no:r.receiptNo||null,
-        voided:!!r.voided, voided_by:r.voidedBy||null, voided_at:r.voidedAt?new Date(r.voidedAt).toISOString():null, meta:r}))
-    ];
-    await syncTable('orders', orderRows);
-    await syncTable('shift_handovers', handovers.map(h=>({id:h.id, business_id:currentBusinessId, from_staff_id:h.waiterId||null, to_staff_id:h.confirmedBy?null:null, shift_type:'waiter', cash_amount:h.amount||0, meta:h})));
-    await syncTable('audit_log', auditLog.map(a=>({id:a.id, business_id:currentBusinessId, actor:a.user, action:a.action, target:a.ref, from_value:a.prevValue, to_value:a.newValue, meta:a})));
+    await withTimeout(runFullSync(), SYNC_TIMEOUT_MS, 'Sync');
     lastSyncedAt=Date.now(); lastSyncError=null;
-    const ind=document.getElementById('syncStatusIndicator'); if(ind) renderSyncStatus();
   }catch(e){
     console.warn('Supabase sync error', e);
     lastSyncError = (e && e.message) ? e.message : 'Unknown sync error';
-    const ind=document.getElementById('syncStatusIndicator'); if(ind) renderSyncStatus();
+  }finally{
+    syncInProgress=false;
+    renderSyncStatus();
   }
 }
 async function flushSupabaseSync(){
@@ -853,8 +868,16 @@ async function flushSupabaseSync(){
 }
 function renderSyncStatus(){
   const el=document.getElementById('syncStatusIndicator'); if(!el) return;
-  if(lastSyncError){ el.innerHTML = `<span style="color:var(--rust);">⚠ Sync issue: ${escapeHtml(lastSyncError)}</span>`; return; }
-  el.innerHTML = lastSyncedAt ? `<span style="color:var(--sage);">✓ All data saved to Supabase — last synced ${new Date(lastSyncedAt).toLocaleTimeString()}</span>` : `<span style="color:var(--slate-dim);">Syncing…</span>`;
+  if(syncInProgress){ el.innerHTML = `<span style="color:var(--slate-dim);">Syncing…</span>`; return; }
+  if(lastSyncError){
+    el.innerHTML = `<span style="color:var(--rust);">⚠ Sync issue: ${escapeHtml(lastSyncError)}</span> <button class="small-btn" id="btnRetrySync" style="margin-left:6px;">Retry Now</button>`;
+  } else if(lastSyncedAt){
+    el.innerHTML = `<span style="color:var(--sage);">✓ All data saved to Supabase — last synced ${new Date(lastSyncedAt).toLocaleTimeString()}</span>`;
+  } else {
+    el.innerHTML = `<span style="color:var(--slate-dim);">Not yet synced.</span> <button class="small-btn" id="btnRetrySync">Sync Now</button>`;
+  }
+  const retryBtn=document.getElementById('btnRetrySync');
+  if(retryBtn) retryBtn.addEventListener('click', ()=>{ showToast('Retrying sync…'); flushSupabaseSync(); });
 }
 window.addEventListener('beforeunload', ()=>{ if(currentBusinessId) doSyncToSupabase(); });
 async function loadBusinessData(){
