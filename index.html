@@ -819,15 +819,18 @@ function withTimeout(promise, ms, label){
   ]);
 }
 async function syncTable(table, rows){
-  const ids = rows.map(r=>r.id);
+  // Upsert-only: never bulk-delete by diffing against the local array here.
+  // A stale tab/session (even briefly out of date) could otherwise wipe out
+  // rows another session just wrote. Actual deletions are issued explicitly
+  // at the exact point a user deletes something (see deleteRowFromSupabase).
   try{
-    if(ids.length){
-      await sb.from(table).delete().eq('business_id', currentBusinessId).not('id','in', `(${ids.join(',')})`);
-      await sb.from(table).upsert(rows, {onConflict:'id'});
-    } else {
-      await sb.from(table).delete().eq('business_id', currentBusinessId);
-    }
+    if(rows.length) await sb.from(table).upsert(rows, {onConflict:'id'});
   }catch(e){ throw new Error('"'+table+'" table — '+((e&&e.message)||'sync failed')); }
+}
+async function deleteRowFromSupabase(table, id){
+  if(!currentBusinessId) return;
+  try{ await sb.from(table).delete().eq('business_id', currentBusinessId).eq('id', id); }
+  catch(e){ console.warn('Failed to delete', table, id, e); }
 }
 async function runFullSync(){
   await sb.from('businesses').update({ name:settings.restaurantName, settings_json:settings }).eq('id', currentBusinessId);
@@ -1584,6 +1587,7 @@ function renderOrderSide(){
       const remaining=getTableOrders(currentTableId);
       if(remaining.length>0){ currentOrderId=remaining[0].id; persistAll(); renderFloor(); renderOrderView(); }
       else { persistAll(); renderFloor(); switchView('floor'); }
+      deleteRowFromSupabase('orders', order.id);
     } else {
       confirmCancelOrder(order);
     }
@@ -1613,6 +1617,7 @@ async function doCancelOrder(order, manager){
   audit('Order cancelled', 'order:'+order.id, `${order.items.length} item(s), ${fmt(totals.grandTotal)}`, `cancelled — authorized by ${manager.name}, requested by ${currentUser.name}`);
   activeOrders=activeOrders.filter(o=>o.id!==order.id);
   persistAll(); renderFloor();
+  deleteRowFromSupabase('orders', order.id);
   await flushSupabaseSync();
   const remaining=getTableOrders(t.id);
   if(remaining.length>0 && currentTableId===t.id){ currentOrderId=remaining[0].id; renderOrderView(); }
@@ -1798,6 +1803,7 @@ document.getElementById('btnConfirmPay').addEventListener('click', async ()=>{
   activeOrders=activeOrders.filter(o=>o.id!==order.id);
   const remaining=getTableOrders(t.id);
   persistAll();
+  deleteRowFromSupabase('orders', order.id);
 
   const confirmBtn=document.getElementById('btnConfirmPay');
   confirmBtn.disabled=true; confirmBtn.textContent='Saving to cloud…';
@@ -2358,6 +2364,7 @@ function renderInvIngredients(body){
     ingredients=ingredients.filter(i=>i.id!==b.dataset.delIng);
     audit('Ingredient deleted', ing?ing.name:'', '', '');
     persistAll(); renderInvIngredients(body);
+    deleteRowFromSupabase('ingredients', b.dataset.delIng);
   }));
 }
 function renderInvItems(body){
@@ -3047,7 +3054,9 @@ function renderSettings(){
         result.push(prev || {id:uid('t'), num, capacity:TABLE_PATTERN[i%TABLE_PATTERN.length], waiterId:null, zone: zoneForIndex(i, newCount)});
       }
       existing.forEach(t=>{ if(t.num>newCount && getTableOrders(t.id).length>0) result.push(t); });
+      const removedTables = existing.filter(t=>!result.some(r=>r.id===t.id));
       tables=result; settings.tableCount=newCount;
+      removedTables.forEach(t=>deleteRowFromSupabase('restaurant_tables', t.id));
     }
     document.querySelectorAll('[data-cap]').forEach(inp=>{ const t=tableById(inp.dataset.cap); if(t) t.capacity=Number(inp.value)||t.capacity; });
     audit('Settings updated','settings','','updated');
@@ -3074,6 +3083,7 @@ function renderSettings(){
     tables.forEach(t=>{ if(t.waiterId===u.id) t.waiterId=null; });
     audit('User deleted','user:'+u.id, u.name, '');
     persistAll(); renderSettings(); showToast('User deleted');
+    deleteRowFromSupabase('staff_users', u.id);
   });
   document.getElementById('btnAddItem').onclick=()=>openItemForm(null);
   document.querySelectorAll('[data-edit-item]').forEach(b=>b.onclick=()=>openItemForm(menu.find(m=>m.id===b.dataset.editItem)));
@@ -3087,6 +3097,7 @@ function renderSettings(){
     menu=menu.filter(x=>x.id!==m.id);
     audit('Menu item deleted', m.name, m.name, '');
     persistAll(); renderSettings();
+    deleteRowFromSupabase('menu_items', m.id);
   });
   const resetBtn=document.getElementById('btnSystemReset');
   if(resetBtn) resetBtn.onclick=confirmSystemReset;
