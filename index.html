@@ -818,36 +818,51 @@ function withTimeout(promise, ms, label){
     new Promise((_, reject)=>setTimeout(()=>reject(new Error((label||'Request')+' timed out after '+Math.round(ms/1000)+'s — check your internet connection')), ms))
   ]);
 }
+function checkSbResult(result, label){
+  if(result && result.error){ throw new Error((label?'"'+label+'" — ':'')+(result.error.message||JSON.stringify(result.error))); }
+  return result;
+}
 async function syncTable(table, rows){
   // Upsert-only: never bulk-delete by diffing against the local array here.
   // A stale tab/session (even briefly out of date) could otherwise wipe out
   // rows another session just wrote. Actual deletions are issued explicitly
   // at the exact point a user deletes something (see deleteRowFromSupabase).
-  try{
-    if(rows.length) await sb.from(table).upsert(rows, {onConflict:'id'});
-  }catch(e){ throw new Error('"'+table+'" table — '+((e&&e.message)||'sync failed')); }
+  if(!rows.length) return;
+  const result = await sb.from(table).upsert(rows, {onConflict:'id'});
+  checkSbResult(result, table);
 }
 async function deleteRowFromSupabase(table, id){
   if(!currentBusinessId) return;
-  try{ await sb.from(table).delete().eq('business_id', currentBusinessId).eq('id', id); }
-  catch(e){ console.warn('Failed to delete', table, id, e); }
+  try{
+    const result = await sb.from(table).delete().eq('business_id', currentBusinessId).eq('id', id);
+    checkSbResult(result, table);
+  }catch(e){ console.warn('Failed to delete', table, id, e); lastSyncError='Delete from "'+table+'" failed: '+((e&&e.message)||'unknown error'); renderSyncStatus(); }
 }
 async function runFullSync(){
-  await sb.from('businesses').update({ name:settings.restaurantName, settings_json:settings }).eq('id', currentBusinessId);
-  await syncTable('staff_users', users.map(u=>({id:u.id, business_id:currentBusinessId, name:u.name, role:u.role, pin:u.pin, meta:u})));
-  await syncTable('restaurant_tables', tables.map(t=>({id:t.id, business_id:currentBusinessId, num:t.num, capacity:t.capacity, zone:t.zone==='outdoor'?'outdoor':'indoor', waiter_id:t.waiterId||null, meta:t})));
-  await syncTable('menu_items', menu.map(m=>({id:m.id, business_id:currentBusinessId, category:m.category||'', name:m.name, description:m.description||'', price:m.price||0, veg:!!m.veg, available:!!m.available, photo_url:m.photo||m.photoUrl||null, meta:m})));
-  await syncTable('ingredients', ingredients.map(i=>({id:i.id, business_id:currentBusinessId, name:i.name, unit:i.unit||'', stock_qty:i.stock_qty||0, low_stock_alert:i.low_stock_alert||0, cost_per_unit:i.cost_per_unit||0, meta:i})));
-  const orderRows = [
-    ...activeOrders.map(o=>({id:o.id, business_id:currentBusinessId, status:'open', table_num:(tableById(o.tableId)||{}).num||null, waiter_name:o.waiterName||'', items:o.items||[], grand_total:0, meta:o})),
-    ...history.map(r=>({id:r.id, business_id:currentBusinessId, status:r.voided?'voided':'paid', table_num:r.tableNum||null, waiter_name:r.waiter||'', items:r.items||[],
-      subtotal:r.subtotal||0, discount_amount:r.discountAmount||0, tax:r.tax||0, service_charge:r.serviceCharge||0, tip:r.tip||0, grand_total:r.grandTotal||0,
-      payment_method:r.paymentMethod||null, payment_detail:r.paymentDetail||null, receipt_no:r.receiptNo||null,
-      voided:!!r.voided, voided_by:r.voidedBy||null, voided_at:r.voidedAt?new Date(r.voidedAt).toISOString():null, meta:r}))
-  ];
-  await syncTable('orders', orderRows);
-  await syncTable('shift_handovers', handovers.map(h=>({id:h.id, business_id:currentBusinessId, from_staff_id:h.waiterId||null, to_staff_id:h.confirmedBy?null:null, shift_type:'waiter', cash_amount:h.amount||0, meta:h})));
-  await syncTable('audit_log', auditLog.map(a=>({id:a.id, business_id:currentBusinessId, actor:a.user, action:a.action, target:a.ref, from_value:a.prevValue, to_value:a.newValue, meta:a})));
+  const errors=[];
+  const attempt=async (label, fn)=>{ try{ await fn(); }catch(e){ errors.push((e&&e.message)||(label+' failed')); console.warn('Sync step failed:', label, e); } };
+
+  await attempt('businesses', async ()=>{
+    checkSbResult(await sb.from('businesses').update({ name:settings.restaurantName, settings_json:settings }).eq('id', currentBusinessId), 'businesses');
+  });
+  await attempt('staff_users', ()=>syncTable('staff_users', users.map(u=>({id:u.id, business_id:currentBusinessId, name:u.name, role:u.role, pin:u.pin, meta:u}))));
+  await attempt('restaurant_tables', ()=>syncTable('restaurant_tables', tables.map(t=>({id:t.id, business_id:currentBusinessId, num:t.num, capacity:t.capacity, zone:t.zone==='outdoor'?'outdoor':'indoor', waiter_id:t.waiterId||null, meta:t}))));
+  await attempt('menu_items', ()=>syncTable('menu_items', menu.map(m=>({id:m.id, business_id:currentBusinessId, category:m.category||'', name:m.name, description:m.description||'', price:m.price||0, veg:!!m.veg, available:!!m.available, photo_url:m.photo||m.photoUrl||null, meta:m}))));
+  await attempt('ingredients', ()=>syncTable('ingredients', ingredients.map(i=>({id:i.id, business_id:currentBusinessId, name:i.name, unit:i.unit||'', stock_qty:i.stock_qty||0, low_stock_alert:i.low_stock_alert||0, cost_per_unit:i.cost_per_unit||0, meta:i}))));
+  await attempt('orders', ()=>{
+    const orderRows = [
+      ...activeOrders.map(o=>({id:o.id, business_id:currentBusinessId, status:'open', table_num:(tableById(o.tableId)||{}).num||null, waiter_name:o.waiterName||'', items:o.items||[], grand_total:0, meta:o})),
+      ...history.map(r=>({id:r.id, business_id:currentBusinessId, status:r.voided?'voided':'paid', table_num:r.tableNum||null, waiter_name:r.waiter||'', items:r.items||[],
+        subtotal:r.subtotal||0, discount_amount:r.discountAmount||0, tax:r.tax||0, service_charge:r.serviceCharge||0, tip:r.tip||0, grand_total:r.grandTotal||0,
+        payment_method:r.paymentMethod||null, payment_detail:r.paymentDetail||null, receipt_no:r.receiptNo||null,
+        voided:!!r.voided, voided_by:r.voidedBy||null, voided_at:r.voidedAt?new Date(r.voidedAt).toISOString():null, meta:r}))
+    ];
+    return syncTable('orders', orderRows);
+  });
+  await attempt('shift_handovers', ()=>syncTable('shift_handovers', handovers.map(h=>({id:h.id, business_id:currentBusinessId, from_staff_id:h.waiterId||null, to_staff_id:h.confirmedBy?null:null, shift_type:'waiter', cash_amount:h.amount||0, meta:h}))));
+  await attempt('audit_log', ()=>syncTable('audit_log', auditLog.map(a=>({id:a.id, business_id:currentBusinessId, actor:a.user, action:a.action, target:a.ref, from_value:a.prevValue, to_value:a.newValue, meta:a}))));
+
+  if(errors.length) throw new Error(errors.join(' | '));
 }
 async function doSyncToSupabase(){
   if(!currentBusinessId) return;
@@ -899,17 +914,51 @@ async function loadBusinessData(){
     sb.from('audit_log').select('*').eq('business_id', currentBusinessId),
     sb.from('ingredients').select('*').eq('business_id', currentBusinessId)
   ]);
+  [['staff_users',staffRes],['restaurant_tables',tablesRes],['menu_items',menuRes],['orders',ordersRes],['shift_handovers',handoversRes],['audit_log',auditRes],['ingredients',ingredientsRes]]
+    .forEach(([label,res])=>{ if(res.error) console.warn('Fetch failed for', label, res.error); });
+  const firstFetchError = [staffRes,tablesRes,menuRes,ordersRes,handoversRes,auditRes,ingredientsRes].find(r=>r.error);
+  if(firstFetchError){ lastSyncError='Initial load — '+firstFetchError.error.message; }
 
   const isFirstLoad = !(staffRes.data&&staffRes.data.length) && !(tablesRes.data&&tablesRes.data.length) && !(menuRes.data&&menuRes.data.length);
 
-  users = (staffRes.data&&staffRes.data.length) ? staffRes.data.map(r=>r.meta||{id:r.id,name:r.name,role:r.role,pin:r.pin}) : DEFAULT_USERS.map(u=>({...u}));
+  if(staffRes.data && staffRes.data.length){
+    users = staffRes.data.map(r=>r.meta||{id:r.id,name:r.name,role:r.role,pin:r.pin});
+  } else {
+    // Fresh business: mint brand-new unique IDs rather than reusing the static
+    // template IDs (u1, u2...) — those are a *global* primary key, so reusing
+    // them collides with whichever business first claimed them and gets
+    // silently rejected by Row-Level Security.
+    users = DEFAULT_USERS.map(u=>({...u, id:uid('u')}));
+  }
+  const waiterAicha = users.find(u=>u.name==='Aicha Diallo');
+  const waiterMoussa = users.find(u=>u.name==='Moussa Keita');
+
+  if(ingredientsRes.data && ingredientsRes.data.length){
+    ingredients = ingredientsRes.data.map(r=>r.meta||r);
+  } else {
+    ingredients = DEFAULT_INGREDIENTS.map(i=>({...i, id:uid('ing')}));
+  }
+  const ingredientIdMap = {};
+  DEFAULT_INGREDIENTS.forEach((tpl,i)=>{ ingredientIdMap[tpl.id]=ingredients[i]?ingredients[i].id:tpl.id; });
+
+  if(menuRes.data && menuRes.data.length){
+    menu = menuRes.data.map(r=>r.meta||r);
+  } else {
+    menu = DEFAULT_MENU.map(m=>({
+      ...m, id:uid('m'),
+      recipe: Array.isArray(m.recipe) ? m.recipe.map(rl=>({...rl, ingredientId: ingredientIdMap[rl.ingredientId]||rl.ingredientId})) : m.recipe
+    }));
+  }
+
   tables = (tablesRes.data&&tablesRes.data.length) ? tablesRes.data.map(r=>r.meta||{id:r.id,num:r.num,capacity:r.capacity,zone:r.zone,waiterId:r.waiter_id}) : null;
   if(!tables){
     tables=[];
-    for(let i=0;i<settings.tableCount;i++){ const num=i+1; tables.push({id:uid('t'), num, capacity:TABLE_PATTERN[i%TABLE_PATTERN.length], waiterId:(num%2===0?'u4':'u3'), zone:zoneForIndex(i,settings.tableCount)}); }
+    for(let i=0;i<settings.tableCount;i++){
+      const num=i+1;
+      const waiterId = (num%2===0) ? (waiterMoussa?waiterMoussa.id:null) : (waiterAicha?waiterAicha.id:null);
+      tables.push({id:uid('t'), num, capacity:TABLE_PATTERN[i%TABLE_PATTERN.length], waiterId, zone:zoneForIndex(i,settings.tableCount)});
+    }
   }
-  menu = (menuRes.data&&menuRes.data.length) ? menuRes.data.map(r=>r.meta||r) : DEFAULT_MENU.map(m=>({...m}));
-  ingredients = (ingredientsRes.data&&ingredientsRes.data.length) ? ingredientsRes.data.map(r=>r.meta||r) : DEFAULT_INGREDIENTS.map(i=>({...i}));
 
   activeOrders=[]; history=[];
   (ordersRes.data||[]).forEach(r=>{ if(r.status==='open') activeOrders.push(r.meta||r); else history.push(r.meta||r); });
