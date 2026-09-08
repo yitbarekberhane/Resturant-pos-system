@@ -854,7 +854,7 @@ async function runFullSync(){
       ...activeOrders.map(o=>({id:o.id, business_id:currentBusinessId, status:'open', table_num:(tableById(o.tableId)||{}).num||null, waiter_name:o.waiterName||'', items:o.items||[], grand_total:0, meta:o})),
       ...history.map(r=>({id:r.id, business_id:currentBusinessId, status:r.voided?'voided':'paid', table_num:r.tableNum||null, waiter_name:r.waiter||'', items:r.items||[],
         subtotal:r.subtotal||0, discount_amount:r.discountAmount||0, tax:r.tax||0, service_charge:r.serviceCharge||0, tip:r.tip||0, grand_total:r.grandTotal||0,
-        payment_method:r.paymentMethod||null, payment_detail:r.paymentDetail||null, receipt_no:r.receiptNo||null,
+        payment_method:r.paymentMethod||null, payment_detail:r.paymentDetail||null, receipt_no: r.receiptNo ? (parseInt(String(r.receiptNo).replace(/[^0-9]/g,''),10) || null) : null,
         voided:!!r.voided, voided_by:r.voidedBy||null, voided_at:r.voidedAt?new Date(r.voidedAt).toISOString():null, meta:r}))
     ];
     return syncTable('orders', orderRows);
