@@ -679,6 +679,7 @@ const DEFAULT_LEDGER_ACCOUNTS = [
   {id:'1010', code:'1010', name:'Cash', type:'asset'},
   {id:'1020', code:'1020', name:'Card Clearing', type:'asset'},
   {id:'1030', code:'1030', name:'Mobile Money', type:'asset'},
+  {id:'1040', code:'1040', name:'Bank Account', type:'asset'},
   {id:'1310', code:'1310', name:'Inventory Asset', type:'asset'},
   {id:'2010', code:'2010', name:'Tax Payable', type:'liability'},
   {id:'2020', code:'2020', name:'Tips Payable', type:'liability'},
@@ -690,7 +691,7 @@ const DEFAULT_LEDGER_ACCOUNTS = [
   {id:'5110', code:'5110', name:'Cost of Goods Sold', type:'expense'},
   {id:'5900', code:'5900', name:'Operating Expenses', type:'expense'}
 ];
-const LEDGER_SCHEMA_VERSION = 2;
+const LEDGER_SCHEMA_VERSION = 3;
 let ledgerAccounts = load('posv2_ledgerAccounts', null);
 if(!ledgerAccounts){ ledgerAccounts = DEFAULT_LEDGER_ACCOUNTS.map(a=>({...a})); save('posv2_ledgerAccounts', ledgerAccounts); }
 (function migrateLedgerSchema(){
@@ -764,6 +765,23 @@ function reverseSaleJournalEntry(record){
     const lines = original.lines.map(l=>({accountId:l.accountId, debit:l.credit, credit:l.debit, reconciled:false}));
     journal.push({ id:uid('je'), ref:nextJournalRef(), date:Date.now(), memo:(original.source==='cogs'?'COGS reversal':'Reversal')+' — Receipt '+record.receiptNo+' voided',
       source:'reversal', sourceRecordId:record.id, currency:settings.currency, fxRate:1, lines, createdBy:(currentUser?currentUser.name:'system'), createdAt:Date.now() });
+  });
+}
+const CASH_MOVEMENT_JOURNAL_MAP = {
+  bank_deposit:   { debit:'1040', credit:'1010' }, // cash moved out of register into the bank
+  purchase:       { debit:'5900', credit:'1010' }, // petty cash expense paid from register
+  misc_withdrawal:{ debit:'3000', credit:'1010' }, // treated as an owner's draw out of the register
+  other_in:       { debit:'1010', credit:'3000' }  // e.g. float top-up, treated as an owner contribution
+};
+function postCashMovementJournalEntry(category, amount, note, shift){
+  const mapping = CASH_MOVEMENT_JOURNAL_MAP[category];
+  if(!mapping || amount<=0) return;
+  journal.push({
+    id:uid('je'), ref:nextJournalRef(), date:Date.now(),
+    memo:(CASH_MOVEMENT_CATEGORIES[category]?CASH_MOVEMENT_CATEGORIES[category].label:category)+' — '+(note||'')+' (shift: '+(shift.cashierName||shift.cashierId||'')+')',
+    source:'cash_movement', sourceRecordId:shift.id, currency:settings.currency, fxRate:1,
+    lines:[{accountId:mapping.debit, debit:round2(amount), credit:0, reconciled:false},{accountId:mapping.credit, debit:0, credit:round2(amount), reconciled:false}],
+    createdBy:(currentUser?currentUser.name:'system'), createdAt:Date.now()
   });
 }
 function accountBalance(accId, upToMs){
@@ -964,6 +982,13 @@ async function loadBusinessData(){
   (ordersRes.data||[]).forEach(r=>{ if(r.status==='open') activeOrders.push(r.meta||r); else history.push(r.meta||r); });
   handovers = (handoversRes.data||[]).map(r=>r.meta||r);
   auditLog = (auditRes.data||[]).map(r=>r.meta||r).sort((a,b)=>(a.at||0)-(b.at||0));
+
+  // Defensive cleanup: heal any table pointing at a waiter/user that no
+  // longer exists (e.g. from an older data migration), so a stale reference
+  // can never crash a render later.
+  let healedDangling=false;
+  tables.forEach(t=>{ if(t.waiterId && !users.find(u=>u.id===t.waiterId)){ t.waiterId=null; healedDangling=true; } });
+  if(healedDangling){ queueSupabaseSync(); }
 
   if(isFirstLoad){ queueSupabaseSync(); doSyncToSupabase(); }
 }
@@ -1380,7 +1405,9 @@ function openAssignWaiterModal(t){
       const val=document.getElementById('assignWaiterSelect').value;
       const prev = t.waiterId;
       t.waiterId = val||null;
-      audit('Waiter assigned','table:'+t.num, prev?userById(prev)&&userById(prev).name:'—', val?userById(val).name:'Unassigned');
+      const prevUser = prev?userById(prev):null;
+      const newUser = val?userById(val):null;
+      audit('Waiter assigned','table:'+t.num, prevUser?prevUser.name:'—', newUser?newUser.name:'Unassigned');
       persistAll(); renderFloor(); closeGeneric(); showToast('Waiter updated for T'+t.num);
     }}
   ]);
@@ -1424,6 +1451,38 @@ function calcTotals(order){
   const tip=settings.tipEnabled?(Number(order.tip)||0):0;
   const grandTotal=discountedSubtotal+serviceCharge+tax+tip;
   return {subtotal, discountAmount, discountedSubtotal, serviceCharge, tax, tip, grandTotal};
+}
+// Cash collected on completed orders, split by which role processed the payment.
+// Manager-processed cash is tracked separately as "System Cash" per business policy —
+// it is never attributed to a waiter's or cashier's personal cash accountability.
+function cashByRole(rows){
+  let waiters=0, cashier=0, system=0;
+  rows.forEach(r=>{
+    let cashAmt=0;
+    if(r.paymentMethod==='cash') cashAmt=r.grandTotal;
+    else if(r.paymentMethod==='split' && r.paymentDetail && Array.isArray(r.paymentDetail.parts)){
+      cashAmt = r.paymentDetail.parts.filter(p=>p.method==='cash').reduce((s,p)=>s+(Number(p.amount)||0),0);
+    }
+    if(cashAmt<=0) return;
+    if(r.cashierRole==='waiter') waiters+=cashAmt;
+    else if(r.cashierRole==='manager') system+=cashAmt;
+    else cashier+=cashAmt;
+  });
+  return { waiters:round2(waiters), cashier:round2(cashier), system:round2(system), total:round2(waiters+cashier+system) };
+}
+// Cash movements (Bank Deposit / Purchase / Misc Withdrawal) across every cashier/manager
+// shift, optionally restricted to a date range (ms timestamps, inclusive).
+function cashMovementsByCategory(fromMs, toMs){
+  const totals={ bank_deposit:0, purchase:0, misc_withdrawal:0, other_in:0 };
+  cashierShifts.forEach(sh=>{
+    (sh.otherMovements||[]).forEach(m=>{
+      if(fromMs!=null && m.at<fromMs) return;
+      if(toMs!=null && m.at>toMs) return;
+      const cat = m.category || (m.type==='in' ? 'other_in' : 'purchase');
+      totals[cat] = (totals[cat]||0) + (Number(m.amount)||0);
+    });
+  });
+  return { bankDeposits:round2(totals.bank_deposit), purchases:round2(totals.purchase), miscWithdrawals:round2(totals.misc_withdrawal), otherIn:round2(totals.other_in) };
 }
 
 function renderOrderView(){
@@ -1530,7 +1589,8 @@ function renderOrderSide(){
   const orders=getTableOrders(t.id);
   const totals=calcTotals(order);
   const discountAllowed = can('applyDiscount');
-  const payAllowed = can('processPayment') && (currentUser.role!=='waiter' || t.waiterId===currentUser.id);
+  const hasOpenShift = currentUser.role==='waiter' ? !!getOpenWaiterShift(currentUser.id) : !!getOpenCashierShift(currentUser.id);
+  const payAllowed = can('processPayment') && (currentUser.role!=='waiter' || t.waiterId===currentUser.id) && hasOpenShift;
   const anyLocked = order.items.some(it=>it.locked);
   const hasUnlockedItems = order.items.some(it=>!it.locked);
 
@@ -1578,7 +1638,7 @@ function renderOrderSide(){
     </div>
     <div class="side-actions">
       <button class="btn btn-outline" id="btnSaveDraft">Save Draft</button>
-      <button class="btn btn-amber" id="btnCheckout" ${order.items.length===0||!payAllowed?'disabled':''}>${payAllowed?'Checkout':'Not authorized'}</button>
+      <button class="btn btn-amber" id="btnCheckout" ${order.items.length===0||!payAllowed?'disabled':''} title="${(!hasOpenShift && can('processPayment'))?'Payment restricted. You must open a shift before processing payments.':''}">${!can('processPayment')?'Not authorized':(!hasOpenShift?'Open Shift to Checkout':'Checkout')}</button>
       <button class="btn btn-outline" id="btnDeleteCheck">${order.items.length===0?'Remove Empty Check':'Void Order (Manager PIN Required)'}</button>
     </div>
   `;
@@ -1721,7 +1781,9 @@ function openCheckout(orderId){
   const t=tableById(order.tableId);
   if(currentUser.role==='waiter'){
     if(t.waiterId!==currentUser.id){ showToast('You can only take payment for your own tables.'); return; }
-    if(!getOpenWaiterShift(currentUser.id)){ showToast('Open your shift before processing payment (Cash tab).'); return; }
+    if(!getOpenWaiterShift(currentUser.id)){ showToast('Payment restricted. You must open a shift before processing payments.'); return; }
+  } else {
+    if(!getOpenCashierShift(currentUser.id)){ showToast('Payment restricted. You must open a shift before processing payments.'); return; }
   }
   checkoutOrderId=orderId; payMethod='cash';
   const totals=calcTotals(order);
@@ -1838,6 +1900,17 @@ document.getElementById('btnConfirmPay').addEventListener('click', async ()=>{
       else if(payMethod==='split') splitParts.forEach(p=>{ if(p.method==='cash') cashPart+=Number(p.amount)||0; else nonCashPart+=Number(p.amount)||0; });
       shift.cashCollected += cashPart; shift.nonCashCollected += nonCashPart; shift.salesTotal += totals.grandTotal;
     }
+  } else if(currentUser.role==='manager'){
+    // Manager-collected cash is tracked centrally as "System Cash" (see History/Accountant
+    // views), NOT attributed to any individual shift's cash drawer — non-cash portions
+    // still count toward the manager's own shift totals for reconciliation purposes.
+    const shift=getOpenCashierShift(currentUser.id);
+    if(shift){
+      let nonCashPart=0;
+      if(payMethod==='card'||payMethod==='upi') nonCashPart=totals.grandTotal;
+      else if(payMethod==='split') splitParts.forEach(p=>{ if(p.method!=='cash') nonCashPart+=Number(p.amount)||0; });
+      shift.nonCashSalesDirect += nonCashPart; shift.salesTotal += totals.grandTotal;
+    }
   } else {
     const shift=getOpenCashierShift(currentUser.id);
     if(shift){
@@ -1951,14 +2024,14 @@ function renderHistoryTable(){
   }
   summaryHtml += `</div>`;
   if(!isOwnOnly){
-    const cashWithWaiters = users.filter(u=>u.role==='waiter').reduce((s,u)=>s+currentWaiterHeldCash(u.id),0);
-    const cashWithCashier = users.filter(u=>u.role==='cashier'||u.role==='manager').reduce((s,u)=>s+currentCashierHeldCash(u.id),0);
+    const cash = cashByRole(validRows);
     summaryHtml += `<div class="stat-grid" style="margin-top:8px; margin-bottom:6px;">
-      <div class="stat-box amber"><div class="l">Cash With Waiters</div><div class="v">${fmt(cashWithWaiters)}</div></div>
-      <div class="stat-box amber"><div class="l">Cash With Cashier</div><div class="v">${fmt(cashWithCashier)}</div></div>
-      <div class="stat-box amber"><div class="l">Total Cash In System</div><div class="v">${fmt(cashWithWaiters+cashWithCashier)}</div></div>
+      <div class="stat-box amber"><div class="l">Cash With Waiters</div><div class="v">${fmt(cash.waiters)}</div></div>
+      <div class="stat-box amber"><div class="l">Cash With Cashier</div><div class="v">${fmt(cash.cashier)}</div></div>
+      <div class="stat-box amber"><div class="l">System Cash (Manager)</div><div class="v">${fmt(cash.system)}</div></div>
+      <div class="stat-box amber"><div class="l">Total Cash In System</div><div class="v">${fmt(cash.total)}</div></div>
     </div>
-    <p class="hint" style="margin-bottom:2px;">Cash figures reflect what's currently held right now, independent of the filters below. Revenue figures reflect the filtered results.</p>`;
+    <p class="hint" style="margin-bottom:2px;">Cash figures are the sum of cash received on the orders shown below (including the cash portion of split payments), grouped by who processed the payment. Cash a manager processes directly is tracked separately as System Cash, never attributed to a waiter or cashier. These react to the filters, same as the revenue figures above.</p>`;
   }
   summaryEl.innerHTML = summaryHtml + `<p class="hint" style="margin-bottom:14px;">${rows.length} order${rows.length!==1?'s':''} shown${validRows.length!==rows.length?` (${rows.length-validRows.length} voided excluded from totals)`:''}</p>`;
   if(rows.length===0){ wrap.innerHTML='<div class="empty-note">No orders match.</div>'; return; }
@@ -2159,8 +2232,8 @@ function cashierCashHtml(u){
       <div class="stat-box amber"><div class="l">Expected Cash Now</div><div class="v">${fmt(expected)}</div></div>
     </div>
     <div class="btn-row" style="margin-top:6px;"><button class="btn btn-outline-dark" id="btnAddMovement">Record Cash Movement</button><button class="btn btn-outline" id="btnCloseCShift">Close Shift</button></div>
-    ${shift.otherMovements.length>0?`<div class="section-title">Other Cash Movements</div><table class="data-table"><thead><tr><th>Type</th><th>Amount</th><th>Note</th><th>Time</th><th></th></tr></thead><tbody>
-      ${shift.otherMovements.map(m=>`<tr><td>${m.type}${m.edited?' <span class="badge-voided" style="background:rgba(217,164,65,0.18); color:var(--amber);">Adjusted</span>':''}</td><td>${fmt(m.amount)}</td><td>${escapeHtml(m.note)}</td><td>${new Date(m.at).toLocaleTimeString()}</td><td><button class="small-btn" data-edit-movement="${m.id}">Edit</button></td></tr>`).join('')}</tbody></table>`:''}`;
+    ${shift.otherMovements.length>0?`<div class="section-title">Cash Movements This Shift</div><table class="data-table"><thead><tr><th>Category</th><th>Amount</th><th>Description</th><th>Time</th><th></th></tr></thead><tbody>
+      ${shift.otherMovements.map(m=>`<tr><td>${movementCategoryLabel(m)}${m.edited?' <span class="badge-voided" style="background:rgba(217,164,65,0.18); color:var(--amber);">Adjusted</span>':''}</td><td>${fmt(m.amount)}</td><td>${escapeHtml(m.note)}</td><td>${new Date(m.at).toLocaleString()}</td><td><button class="small-btn" data-edit-movement="${m.id}">Edit</button></td></tr>`).join('')}</tbody></table>`:''}`;
   }
   html += `<div class="section-title">Pending Waiter Handovers</div>`;
   html += pending.length===0?'<p class="hint">None pending.</p>':`<table class="data-table"><thead><tr><th>Waiter</th><th>Amount</th><th>Requested</th><th></th></tr></thead><tbody>
@@ -2245,21 +2318,39 @@ function openCashierShiftModal(u){
     }}
   ]);
 }
+const CASH_MOVEMENT_CATEGORIES = {
+  bank_deposit: { label:'Bank Deposit (Cash to Bank)', type:'out' },
+  purchase: { label:'Direct Purchase / Petty Cash Expense', type:'out' },
+  misc_withdrawal: { label:'Miscellaneous Withdrawal', type:'out' },
+  other_in: { label:'Other Cash In (e.g. float top-up)', type:'in' }
+};
+function movementCategoryLabel(m){
+  const cat = m.category || (m.type==='in' ? 'other_in' : 'purchase');
+  return (CASH_MOVEMENT_CATEGORIES[cat]||{}).label || cat;
+}
 function openMovementModal(shift){
   if(!requireOrToast('recordOtherCashMovement')) return;
   openGeneric('Record Cash Movement', `
     <div class="form-grid">
-      <div class="form-field"><label>Type</label><select id="mvType"><option value="in">Cash In</option><option value="out">Cash Out</option></select></div>
+      <div class="form-field full"><label>Transaction Type</label><select id="mvCategory">
+        ${Object.keys(CASH_MOVEMENT_CATEGORIES).map(k=>`<option value="${k}">${CASH_MOVEMENT_CATEGORIES[k].label}</option>`).join('')}
+      </select></div>
       <div class="form-field"><label>Amount</label><input type="number" id="mvAmount" min="0" step="0.5" value="0"></div>
-      <div class="form-field full"><label>Note</label><input type="text" id="mvNote" placeholder="e.g. petty cash purchase"></div>
+      <div class="form-field full"><label>Description / Reason</label><input type="text" id="mvNote" placeholder="e.g. deposited to Ecobank branch, invoice #221"></div>
+      <p class="hint full" style="margin-top:2px;">This will be recorded at ${new Date().toLocaleString()} and automatically deducted from this shift's expected cash at close.</p>
     </div>`, [
     {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
     {label:'Record', variant:'btn-amber', handler:()=>{
-      const type=document.getElementById('mvType').value, amount=Number(document.getElementById('mvAmount').value)||0, note=document.getElementById('mvNote').value;
-      if(amount<=0) return;
-      shift.otherMovements.push({id:uid('mv'), type, amount, note, at:Date.now(), edited:false});
-      audit('Cash movement recorded', shift.id, '', type+' '+fmt(amount)+' — '+note);
-      persistAll(); closeGeneric(); renderCash();
+      const category=document.getElementById('mvCategory').value;
+      const amount=Number(document.getElementById('mvAmount').value)||0;
+      const note=document.getElementById('mvNote').value.trim();
+      if(amount<=0){ showToast('Enter an amount greater than zero.'); return; }
+      if(!note){ showToast('A description/reason is required.'); return; }
+      const type=CASH_MOVEMENT_CATEGORIES[category].type;
+      shift.otherMovements.push({id:uid('mv'), category, type, amount, note, at:Date.now(), edited:false, recordedBy:currentUser.name});
+      audit('Cash movement recorded', shift.id, '', CASH_MOVEMENT_CATEGORIES[category].label+' '+fmt(amount)+' — '+note);
+      postCashMovementJournalEntry(category, amount, note, shift);
+      persistAll(); closeGeneric(); renderCash(); showToast('Cash movement recorded');
     }}
   ]);
 }
@@ -2303,10 +2394,17 @@ function managerCashOverviewHtml(){
   html += wShifts.length===0?'<p class="hint">No waiter shifts yet.</p>':`<table class="data-table"><thead><tr><th>Waiter</th><th>Status</th><th>Cash Held / Collected</th><th>Opened</th><th>Closed</th></tr></thead><tbody>
     ${wShifts.map(s=>`<tr><td>${escapeHtml(s.waiterName)}</td><td>${s.status}</td><td>${s.status==='open'?fmt(waiterCashInHand(s)):fmt(s.actualCashCounted)}</td><td>${new Date(s.openedAt).toLocaleString()}</td><td>${s.closedAt?new Date(s.closedAt).toLocaleString():'—'}</td></tr>`).join('')}
   </tbody></table>`;
+  const allCShifts = cashierShifts.slice().sort((a,b)=>b.openedAt-a.openedAt);
+  const cShifts = allCShifts.filter(s=>{ const u=userById(s.cashierId); return !u || u.role!=='manager'; });
+  const mShifts = allCShifts.filter(s=>{ const u=userById(s.cashierId); return u && u.role==='manager'; });
   html += `<div class="section-title">All Cashier Shifts</div>`;
-  const cShifts = cashierShifts.slice().sort((a,b)=>b.openedAt-a.openedAt);
   html += cShifts.length===0?'<p class="hint">No cashier shifts yet.</p>':`<table class="data-table"><thead><tr><th>Cashier</th><th>Status</th><th>Opened</th><th>Closed</th></tr></thead><tbody>
     ${cShifts.map(s=>`<tr><td>${escapeHtml(s.cashierName)}</td><td>${s.status}</td><td>${new Date(s.openedAt).toLocaleString()}</td><td>${s.closedAt?new Date(s.closedAt).toLocaleString():'—'}</td></tr>`).join('')}
+  </tbody></table>`;
+  html += `<div class="section-title">All Manager Shifts (System Cash)</div>
+  <p class="hint" style="margin-top:-4px;">Cash a manager processes directly is tracked here as System Cash — it is never counted as "Cash With Cashier".</p>`;
+  html += mShifts.length===0?'<p class="hint">No manager shifts yet.</p>':`<table class="data-table"><thead><tr><th>Manager</th><th>Status</th><th>Opened</th><th>Closed</th></tr></thead><tbody>
+    ${mShifts.map(s=>`<tr><td>${escapeHtml(s.cashierName)}</td><td>${s.status}</td><td>${new Date(s.openedAt).toLocaleString()}</td><td>${s.closedAt?new Date(s.closedAt).toLocaleString():'—'}</td></tr>`).join('')}
   </tbody></table>`;
   return html;
 }
@@ -2600,7 +2698,22 @@ function renderAcctOverview(body){
 function renderAcctOverviewStats(){
   const el=document.getElementById('overviewStats'); if(!el) return;
   const rows=financeFilteredRows();
-  if(rows.length===0){ el.innerHTML='<div class="empty-note">No transactions in this date range.</div>'; return; }
+  const {from,to}=financeDateRange();
+  const fromMs = from ? new Date(from+'T00:00:00').getTime() : null;
+  const toMs = to ? new Date(to+'T23:59:59').getTime() : null;
+  const cash = cashByRole(rows);
+  const movements = cashMovementsByCategory(fromMs, toMs);
+  const netRegisterCash = accountBalance('1010', toMs);
+  const cashRegisterHtml = `
+    <div class="section-title" style="margin-top:0;">Cash &amp; Register</div>
+    <div class="stat-grid" style="margin-bottom:14px;">
+      <div class="stat-box amber"><div class="l">Total System Cash Collected</div><div class="v">${fmt(cash.system)}</div></div>
+      <div class="stat-box"><div class="l">Bank Transfers / Deposits</div><div class="v">${fmt(movements.bankDeposits)}</div></div>
+      <div class="stat-box"><div class="l">Cash Purchases / Petty Cash</div><div class="v">${fmt(movements.purchases)}</div></div>
+      <div class="stat-box good"><div class="l">Net Register Cash On Hand</div><div class="v">${fmt(netRegisterCash)}</div></div>
+    </div>
+    <p class="hint" style="margin-bottom:14px;">System Cash and deposits/purchases reflect the selected date range. Net Register Cash On Hand is the live running balance of the Cash account (1010) as of the end date, reconciled from every sale and every recorded cash movement.</p>`;
+  if(rows.length===0){ el.innerHTML=cashRegisterHtml+'<div class="empty-note">No transactions in this date range.</div>'; return; }
   const grossSales=rows.reduce((s,r)=>s+r.subtotal,0);
   const discounts=rows.reduce((s,r)=>s+r.discountAmount,0);
   const netSales=grossSales-discounts;
@@ -2610,7 +2723,8 @@ function renderAcctOverviewStats(){
   const totalCollected=rows.reduce((s,r)=>s+r.grandTotal,0);
   const byMethod={cash:0,card:0,upi:0,split:0};
   rows.forEach(r=>{ byMethod[r.paymentMethod]=(byMethod[r.paymentMethod]||0)+r.grandTotal; });
-  el.innerHTML = `
+  el.innerHTML = cashRegisterHtml + `
+    <div class="section-title" style="margin-top:0;">Sales Summary</div>
     <div class="stat-grid">
       <div class="stat-box"><div class="l">Gross Sales</div><div class="v">${fmt(grossSales)}</div></div>
       <div class="stat-box"><div class="l">Discounts</div><div class="v">${fmt(discounts)}</div></div>
@@ -3052,7 +3166,7 @@ function renderSettings(){
     <div class="shift-card">
       <div class="section-title" style="margin-top:0;">Tables</div>
       <table class="data-table"><thead><tr><th>Table</th><th>Capacity</th><th>Section</th><th>Waiter</th></tr></thead><tbody>
-        ${tables.slice().sort((a,b)=>a.num-b.num).map(t=>`<tr><td>T${t.num}</td><td><input type="number" min="1" data-cap="${t.id}" value="${t.capacity}" style="width:70px; background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.1); color:var(--white); padding:6px; border-radius:4px;"></td><td><select data-zone="${t.id}" style="background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.1); color:var(--white); padding:6px; border-radius:4px;"><option value="indoor" ${t.zone!=='outdoor'?'selected':''}>Indoor</option><option value="outdoor" ${t.zone==='outdoor'?'selected':''}>Outdoor</option></select></td><td>${t.waiterId?escapeHtml(userById(t.waiterId).name):'Unassigned'}</td></tr>`).join('')}
+        ${tables.slice().sort((a,b)=>a.num-b.num).map(t=>{ const wt=t.waiterId?userById(t.waiterId):null; return `<tr><td>T${t.num}</td><td><input type="number" min="1" data-cap="${t.id}" value="${t.capacity}" style="width:70px; background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.1); color:var(--white); padding:6px; border-radius:4px;"></td><td><select data-zone="${t.id}" style="background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.1); color:var(--white); padding:6px; border-radius:4px;"><option value="indoor" ${t.zone!=='outdoor'?'selected':''}>Indoor</option><option value="outdoor" ${t.zone==='outdoor'?'selected':''}>Outdoor</option></select></td><td>${wt?escapeHtml(wt.name):'Unassigned'}</td></tr>`; }).join('')}
       </tbody></table>
     </div>
 
