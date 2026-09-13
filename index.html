@@ -1456,7 +1456,11 @@ function calcTotals(order){
 // Manager-processed cash is tracked separately as "System Cash" per business policy —
 // it is never attributed to a waiter's or cashier's personal cash accountability.
 function cashByRole(rows){
-  let waiters=0, cashier=0, system=0;
+  // Waiters carry cash on their person while serving tables, so they keep
+  // individual attribution. Cashiers and Managers both operate the same
+  // physical register/drawer, so their cash pools together as one shared
+  // "System Cash" total rather than being split by individual employee.
+  let waiters=0, system=0;
   rows.forEach(r=>{
     let cashAmt=0;
     if(r.paymentMethod==='cash') cashAmt=r.grandTotal;
@@ -1465,10 +1469,9 @@ function cashByRole(rows){
     }
     if(cashAmt<=0) return;
     if(r.cashierRole==='waiter') waiters+=cashAmt;
-    else if(r.cashierRole==='manager') system+=cashAmt;
-    else cashier+=cashAmt;
+    else system+=cashAmt;
   });
-  return { waiters:round2(waiters), cashier:round2(cashier), system:round2(system), total:round2(waiters+cashier+system) };
+  return { waiters:round2(waiters), cashier:0, system:round2(system), total:round2(waiters+system) };
 }
 // Cash movements (Bank Deposit / Purchase / Misc Withdrawal) across every cashier/manager
 // shift, optionally restricted to a date range (ms timestamps, inclusive).
@@ -1761,10 +1764,32 @@ function getCashierCarryOverCash(cashierId){
   const lastClosed = shifts.find(s=>s.status==='closed');
   return lastClosed ? (lastClosed.actualCashCounted||0) : 0;
 }
+function directCashSalesForShift(shift){
+  // Cashiers and Managers both operate the same shared register, so their
+  // direct cash sales are intentionally never added to shift.cashSalesDirect
+  // (that field is only used, unused now, for legacy data) — that cash is
+  // tracked centrally as System Cash (see checkout's cash-accountability
+  // logic and History's cash-by-role breakdown). Compute it live from this
+  // staff member's own completed cash sales during the shift's window
+  // instead, so the shift view and expected-cash math both stay accurate.
+  const startMs = shift.openedAt;
+  const endMs = shift.closedAt || Date.now();
+  let total=0;
+  history.forEach(r=>{
+    if(r.voided) return;
+    if(r.cashierUser!==shift.cashierName) return;
+    if(r.datetime<startMs || r.datetime>endMs) return;
+    if(r.paymentMethod==='cash') total+=r.grandTotal;
+    else if(r.paymentMethod==='split' && r.paymentDetail && Array.isArray(r.paymentDetail.parts)){
+      total += r.paymentDetail.parts.filter(p=>p.method==='cash').reduce((s,p)=>s+(Number(p.amount)||0),0);
+    }
+  });
+  return round2(total);
+}
 function cashierExpectedCash(shift){
   const otherIn=shift.otherMovements.filter(m=>m.type==='in').reduce((a,m)=>a+m.amount,0);
   const otherOut=shift.otherMovements.filter(m=>m.type==='out').reduce((a,m)=>a+m.amount,0);
-  return shift.openingCash + shift.cashSalesDirect + shift.handoversReceived + otherIn - otherOut;
+  return shift.openingCash + directCashSalesForShift(shift) + shift.handoversReceived + otherIn - otherOut;
 }
 function currentCashierHeldCash(cashierId){
   const shifts = cashierShiftsSorted(cashierId);
@@ -1890,7 +1915,7 @@ document.getElementById('btnConfirmPay').addEventListener('click', async ()=>{
   audit('Payment recorded', record.receiptNo, '', payMethod+' '+fmt(totals.grandTotal));
   deductStockForOrderItems(order.items);
 
-  // waiter cash accountability
+  // Cash payment accountability
   if(currentUser.role==='waiter'){
     const shift=getOpenWaiterShift(currentUser.id);
     if(shift){
@@ -1900,25 +1925,18 @@ document.getElementById('btnConfirmPay').addEventListener('click', async ()=>{
       else if(payMethod==='split') splitParts.forEach(p=>{ if(p.method==='cash') cashPart+=Number(p.amount)||0; else nonCashPart+=Number(p.amount)||0; });
       shift.cashCollected += cashPart; shift.nonCashCollected += nonCashPart; shift.salesTotal += totals.grandTotal;
     }
-  } else if(currentUser.role==='manager'){
-    // Manager-collected cash is tracked centrally as "System Cash" (see History/Accountant
-    // views), NOT attributed to any individual shift's cash drawer — non-cash portions
-    // still count toward the manager's own shift totals for reconciliation purposes.
+  } else {
+    // Cashiers and Managers both operate the same physical register, so any
+    // cash they collect is tracked exclusively as shared "System Cash" (see
+    // History/Accountant views and directCashSalesForShift) — NEVER added to
+    // shift.cashSalesDirect or attributed to either individual role. Non-cash
+    // (card/UPI) still counts toward their own shift totals for reconciliation.
     const shift=getOpenCashierShift(currentUser.id);
     if(shift){
       let nonCashPart=0;
       if(payMethod==='card'||payMethod==='upi') nonCashPart=totals.grandTotal;
       else if(payMethod==='split') splitParts.forEach(p=>{ if(p.method!=='cash') nonCashPart+=Number(p.amount)||0; });
       shift.nonCashSalesDirect += nonCashPart; shift.salesTotal += totals.grandTotal;
-    }
-  } else {
-    const shift=getOpenCashierShift(currentUser.id);
-    if(shift){
-      let cashPart=0, nonCashPart=0;
-      if(payMethod==='cash') cashPart=totals.grandTotal;
-      else if(payMethod==='card'||payMethod==='upi') nonCashPart=totals.grandTotal;
-      else if(payMethod==='split') splitParts.forEach(p=>{ if(p.method==='cash') cashPart+=Number(p.amount)||0; else nonCashPart+=Number(p.amount)||0; });
-      shift.cashSalesDirect += cashPart; shift.nonCashSalesDirect += nonCashPart; shift.salesTotal += totals.grandTotal;
     }
   }
 
@@ -1985,9 +2003,12 @@ function renderHistory(){
     <input class="filter-input" id="fTable" type="text" placeholder="Table #">
     ${!isOwnOnly?`<select class="filter-select" id="fWaiter"><option value="all">All waiters</option>${users.filter(u=>u.role==='waiter').map(u=>`<option value="${escapeHtml(u.name)}">${escapeHtml(u.name)}</option>`).join('')}</select>`:''}
     ${!isOwnOnly?`<select class="filter-select" id="fCashier"><option value="all">All processed-by</option>${users.map(u=>`<option value="${escapeHtml(u.name)}">${escapeHtml(u.name)}</option>`).join('')}</select>`:''}
-    <input class="filter-input" id="fDate" type="date">
+    <input class="filter-input" id="fDate" type="date" value="${new Date().toISOString().slice(0,10)}">
   `;
   ['fPay','fTable','fWaiter','fCashier','fDate'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('input', renderHistoryTable); });
+  const fDateEl=document.getElementById('fDate');
+  filters.insertAdjacentHTML('beforeend', `<button class="small-btn" id="fClearDate" style="align-self:center;">Show All Dates</button>`);
+  document.getElementById('fClearDate').addEventListener('click', ()=>{ fDateEl.value=''; renderHistoryTable(); });
   renderHistoryTable();
 }
 function renderHistoryTable(){
@@ -2027,11 +2048,10 @@ function renderHistoryTable(){
     const cash = cashByRole(validRows);
     summaryHtml += `<div class="stat-grid" style="margin-top:8px; margin-bottom:6px;">
       <div class="stat-box amber"><div class="l">Cash With Waiters</div><div class="v">${fmt(cash.waiters)}</div></div>
-      <div class="stat-box amber"><div class="l">Cash With Cashier</div><div class="v">${fmt(cash.cashier)}</div></div>
-      <div class="stat-box amber"><div class="l">System Cash (Manager)</div><div class="v">${fmt(cash.system)}</div></div>
+      <div class="stat-box amber"><div class="l">System Cash (Register)</div><div class="v">${fmt(cash.system)}</div></div>
       <div class="stat-box amber"><div class="l">Total Cash In System</div><div class="v">${fmt(cash.total)}</div></div>
     </div>
-    <p class="hint" style="margin-bottom:2px;">Cash figures are the sum of cash received on the orders shown below (including the cash portion of split payments), grouped by who processed the payment. Cash a manager processes directly is tracked separately as System Cash, never attributed to a waiter or cashier. These react to the filters, same as the revenue figures above.</p>`;
+    <p class="hint" style="margin-bottom:2px;">Cash figures are the sum of cash received on the orders shown below (including the cash portion of split payments). Waiters keep individual attribution since they carry cash while serving tables; cash processed by a cashier or manager pools together as System Cash, since both work the same register. These react to the filters, same as the revenue figures above.</p>`;
   }
   summaryEl.innerHTML = summaryHtml + `<p class="hint" style="margin-bottom:14px;">${rows.length} order${rows.length!==1?'s':''} shown${validRows.length!==rows.length?` (${rows.length-validRows.length} voided excluded from totals)`:''}</p>`;
   if(rows.length===0){ wrap.innerHTML='<div class="empty-note">No orders match.</div>'; return; }
@@ -2227,7 +2247,7 @@ function cashierCashHtml(u){
     const expected = cashierExpectedCash(shift);
     html += `<div class="stat-grid">
       <div class="stat-box"><div class="l">Opening Cash</div><div class="v">${fmt(shift.openingCash)}</div></div>
-      <div class="stat-box"><div class="l">Direct Cash Sales</div><div class="v">${fmt(shift.cashSalesDirect)}</div></div>
+      <div class="stat-box"><div class="l">Direct Cash Sales</div><div class="v">${fmt(directCashSalesForShift(shift))}</div></div>
       <div class="stat-box"><div class="l">Handovers Received</div><div class="v">${fmt(shift.handoversReceived)}</div></div>
       <div class="stat-box amber"><div class="l">Expected Cash Now</div><div class="v">${fmt(expected)}</div></div>
     </div>
@@ -2259,6 +2279,11 @@ function wireCashierCash(u){
   }
   document.querySelectorAll('[data-confirm-ho]').forEach(b=>b.onclick=()=>openConfirmHandoverModal(handovers.find(h=>h.id===b.dataset.confirmHo), u));
 }
+function expectedCashExcludingMovement(shift, movement){
+  const otherIn=shift.otherMovements.filter(m=>m.id!==movement.id && m.type==='in').reduce((a,m)=>a+m.amount,0);
+  const otherOut=shift.otherMovements.filter(m=>m.id!==movement.id && m.type==='out').reduce((a,m)=>a+m.amount,0);
+  return shift.openingCash + directCashSalesForShift(shift) + shift.handoversReceived + otherIn - otherOut;
+}
 function openEditMovementModal(shift, movement){
   openGeneric('Edit Cash Movement (Manager Authorization)', `
     <p class="hint">Current record: ${movement.type==='in'?'Cash In':'Cash Out'} of ${fmt(movement.amount)} — "${escapeHtml(movement.note||'—')}"</p>
@@ -2286,6 +2311,14 @@ function openEditMovementModal(shift, movement){
       if(!reason){ document.getElementById('mvEditErr').textContent='Select a reason for this adjustment.'; return; }
       const newType=document.getElementById('mvEditType').value;
       const newAmount=Number(document.getElementById('mvEditAmount').value)||0;
+      if(newAmount<=0){ document.getElementById('mvEditErr').textContent='Enter an amount greater than zero.'; return; }
+      if(newType==='out'){
+        const baseExpected = expectedCashExcludingMovement(shift, movement);
+        if(newAmount > baseExpected + 0.01){
+          document.getElementById('mvEditErr').textContent = 'This correction would take the register negative — only '+fmt(baseExpected)+' would be available.';
+          return;
+        }
+      }
       const extraNote=document.getElementById('mvEditNote').value.trim();
       const prevSummary=`${movement.type} ${fmt(movement.amount)} — ${movement.note||'—'}`;
       movement.type=newType; movement.amount=newAmount; movement.edited=true;
@@ -2330,6 +2363,7 @@ function movementCategoryLabel(m){
 }
 function openMovementModal(shift){
   if(!requireOrToast('recordOtherCashMovement')) return;
+  const expectedNow = cashierExpectedCash(shift);
   openGeneric('Record Cash Movement', `
     <div class="form-grid">
       <div class="form-field full"><label>Transaction Type</label><select id="mvCategory">
@@ -2337,7 +2371,7 @@ function openMovementModal(shift){
       </select></div>
       <div class="form-field"><label>Amount</label><input type="number" id="mvAmount" min="0" step="0.5" value="0"></div>
       <div class="form-field full"><label>Description / Reason</label><input type="text" id="mvNote" placeholder="e.g. deposited to Ecobank branch, invoice #221"></div>
-      <p class="hint full" style="margin-top:2px;">This will be recorded at ${new Date().toLocaleString()} and automatically deducted from this shift's expected cash at close.</p>
+      <p class="hint full" id="mvHint" style="margin-top:2px;">Cash currently in the register: ${fmt(expectedNow)}. This will be recorded at ${new Date().toLocaleString()} and automatically deducted from this shift's expected cash at close.</p>
     </div>`, [
     {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
     {label:'Record', variant:'btn-amber', handler:()=>{
@@ -2347,6 +2381,13 @@ function openMovementModal(shift){
       if(amount<=0){ showToast('Enter an amount greater than zero.'); return; }
       if(!note){ showToast('A description/reason is required.'); return; }
       const type=CASH_MOVEMENT_CATEGORIES[category].type;
+      if(type==='out'){
+        const currentExpected = cashierExpectedCash(shift);
+        if(amount > currentExpected + 0.01){
+          showToast('This would take the register negative — only '+fmt(currentExpected)+' is currently available.');
+          return;
+        }
+      }
       shift.otherMovements.push({id:uid('mv'), category, type, amount, note, at:Date.now(), edited:false, recordedBy:currentUser.name});
       audit('Cash movement recorded', shift.id, '', CASH_MOVEMENT_CATEGORIES[category].label+' '+fmt(amount)+' — '+note);
       postCashMovementJournalEntry(category, amount, note, shift);
@@ -2395,16 +2436,10 @@ function managerCashOverviewHtml(){
     ${wShifts.map(s=>`<tr><td>${escapeHtml(s.waiterName)}</td><td>${s.status}</td><td>${s.status==='open'?fmt(waiterCashInHand(s)):fmt(s.actualCashCounted)}</td><td>${new Date(s.openedAt).toLocaleString()}</td><td>${s.closedAt?new Date(s.closedAt).toLocaleString():'—'}</td></tr>`).join('')}
   </tbody></table>`;
   const allCShifts = cashierShifts.slice().sort((a,b)=>b.openedAt-a.openedAt);
-  const cShifts = allCShifts.filter(s=>{ const u=userById(s.cashierId); return !u || u.role!=='manager'; });
-  const mShifts = allCShifts.filter(s=>{ const u=userById(s.cashierId); return u && u.role==='manager'; });
-  html += `<div class="section-title">All Cashier Shifts</div>`;
-  html += cShifts.length===0?'<p class="hint">No cashier shifts yet.</p>':`<table class="data-table"><thead><tr><th>Cashier</th><th>Status</th><th>Opened</th><th>Closed</th></tr></thead><tbody>
-    ${cShifts.map(s=>`<tr><td>${escapeHtml(s.cashierName)}</td><td>${s.status}</td><td>${new Date(s.openedAt).toLocaleString()}</td><td>${s.closedAt?new Date(s.closedAt).toLocaleString():'—'}</td></tr>`).join('')}
-  </tbody></table>`;
-  html += `<div class="section-title">All Manager Shifts (System Cash)</div>
-  <p class="hint" style="margin-top:-4px;">Cash a manager processes directly is tracked here as System Cash — it is never counted as "Cash With Cashier".</p>`;
-  html += mShifts.length===0?'<p class="hint">No manager shifts yet.</p>':`<table class="data-table"><thead><tr><th>Manager</th><th>Status</th><th>Opened</th><th>Closed</th></tr></thead><tbody>
-    ${mShifts.map(s=>`<tr><td>${escapeHtml(s.cashierName)}</td><td>${s.status}</td><td>${new Date(s.openedAt).toLocaleString()}</td><td>${s.closedAt?new Date(s.closedAt).toLocaleString():'—'}</td></tr>`).join('')}
+  html += `<div class="section-title">All Cashier &amp; Manager Shifts (System Cash Register)</div>
+  <p class="hint" style="margin-top:-4px;">Cashiers and managers share the same register — cash either processes is tracked here as System Cash, never attributed to an individual employee.</p>`;
+  html += allCShifts.length===0?'<p class="hint">No cashier/manager shifts yet.</p>':`<table class="data-table"><thead><tr><th>Staff</th><th>Role</th><th>Status</th><th>Opened</th><th>Closed</th></tr></thead><tbody>
+    ${allCShifts.map(s=>{ const u=userById(s.cashierId); return `<tr><td>${escapeHtml(s.cashierName)}</td><td>${u?u.role:'—'}</td><td>${s.status}</td><td>${new Date(s.openedAt).toLocaleString()}</td><td>${s.closedAt?new Date(s.closedAt).toLocaleString():'—'}</td></tr>`; }).join('')}
   </tbody></table>`;
   return html;
 }
