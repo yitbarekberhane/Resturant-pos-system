@@ -303,6 +303,7 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
 .pm-badge{ font-size:9.5px; text-transform:uppercase; font-weight:700; padding:3px 8px; border-radius:10px; letter-spacing:.04em; }
 .pm-cash{ background:rgba(74,138,99,0.18); color:var(--sage); } .pm-card{ background:rgba(217,164,65,0.18); color:var(--amber); }
 .pm-upi{ background:rgba(156,123,176,0.2); color:var(--plum); } .pm-split{ background:rgba(194,84,57,0.18); color:var(--rust); }
+.pm-orange_money{ background:rgba(247,148,29,0.2); color:#F7941D; }
 .small-btn{ background:var(--charcoal-3); border:1px solid rgba(255,255,255,0.1); color:var(--amber); font-size:10.5px; padding:5px 9px; border-radius:5px; font-weight:600; margin-right:4px; }
 .small-btn:hover{ background:rgba(217,164,65,0.14); }
 .small-btn.danger{ color:var(--rust); }
@@ -367,13 +368,29 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
 .change-box .amt.bad{ color:var(--rust); }
 
 .receipt-head{ text-align:center; margin-bottom:12px; }
+.receipt-logo-img{ max-width:64px; max-height:64px; object-fit:contain; margin:0 auto 6px; display:block; }
 .receipt-head .rname{ font-family:var(--font-display); font-size:19px; font-weight:700; }
+.receipt-head .rtitle{ font-size:12px; font-weight:700; letter-spacing:.04em; margin-top:3px; }
 .receipt-head .raddr,.receipt-head .rtax{ font-size:10.5px; color:#7a7566; margin-top:2px; }
 .meta-row{ display:flex; justify-content:space-between; font-size:11px; color:#5b584f; padding:2px 0; }
 .dashed{ border-top:1px dashed #cfc7ae; margin:9px 0; }
 .receipt-item{ padding:6px 0; border-bottom:1px dashed #e7e0cd; font-size:12.5px; }
 .receipt-item .r1{ display:flex; justify-content:space-between; }
 .receipt-item .r2{ font-size:10px; color:#7a7566; }
+.receipt-total-row{ display:flex; justify-content:space-between; font-size:15px; font-weight:700; padding:6px 0; margin-top:2px; border-top:1px solid #cfc7ae; }
+.receipt-items-sold{ text-align:center; font-size:10.5px; color:#5b584f; margin-top:6px; }
+.receipt-thanks{ text-align:center; font-size:11px; font-weight:700; margin-top:4px; }
+.receipt-timestamp{ text-align:center; font-size:9.5px; color:#7a7566; margin-top:10px; }
+.kt-head{ text-align:center; margin-bottom:8px; }
+.kt-title{ font-size:16px; font-weight:700; letter-spacing:.05em; }
+.kt-table{ font-size:20px; font-weight:700; margin-top:2px; }
+.kt-otype{ font-size:12px; font-weight:700; letter-spacing:.06em; margin-top:3px; padding:2px 8px; border:1.5px solid #000; display:inline-block; border-radius:3px; }
+.kt-update-note{ font-size:15px; font-weight:700; padding:8px 0; text-align:center; }
+.kt-item{ display:flex; gap:10px; padding:7px 0; border-bottom:1px dashed #e7e0cd; }
+.kt-qty{ font-size:16px; font-weight:700; min-width:34px; }
+.kt-name{ font-size:14px; font-weight:600; }
+.kt-note{ font-size:11px; color:#7a7566; font-weight:400; margin-top:2px; }
+.kt-footer{ text-align:center; font-size:10.5px; color:#5b584f; margin-top:8px; }
 
 .summary-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
 .pm-bar-row{ display:flex; align-items:center; gap:10px; margin-bottom:9px; }
@@ -386,7 +403,7 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
 .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
 #printArea{ display:none; }
-@media print{ body *{ visibility:hidden; } #printArea,#printArea *{ visibility:visible; } #printArea{ display:block !important; position:absolute; top:0; left:0; width:100%; background:#fff; color:#000; padding:20px; } }
+@media print{ body *{ visibility:hidden; } #printArea,#printArea *{ visibility:visible; } #printArea{ display:block !important; position:absolute; top:0; left:0; width:80mm; max-width:80mm; background:#fff; color:#000; padding:8px 10px; font-family:'Courier New',monospace; } @page{ size:80mm auto; margin:2mm; } }
 </style>
 </head>
 <body>
@@ -637,10 +654,12 @@ const DEFAULT_MENU = [
   {id:"m11",category:"Combination Platters",name:"Beyaynetu",description:"Vegetarian combination on injera, chef's selection",price:11.5,veg:true,available:true},
   {id:"m12",category:"Combination Platters",name:"Asmara & Addis Special",description:"Doro wat, zigni and beef tibs on injera",price:16.5,veg:false,available:true},
   {id:"m13",category:"Breads & Sides",name:"Extra Injera",description:"Sourdough teff flatbread, basket of two",price:2.5,veg:true,available:true},
-  {id:"m14",category:"Beverages & Dessert",name:"Buna (Coffee Ceremony)",description:"Traditional Ethiopian coffee, cardamom",price:3.5,veg:true,available:true,is_beverage:true},
-  {id:"m15",category:"Beverages & Dessert",name:"Mango Juice",description:"Fresh pressed, seasonal",price:3.5,veg:true,available:true,is_beverage:true,track_stock:true,stock_qty:24,low_stock_alert:6,unit:'bottle',cost_per_unit:1.10}
+  {id:"m14",category:"Beverages & Dessert",name:"Buna (Coffee Ceremony)",description:"Traditional Ethiopian coffee, cardamom",price:3.5,veg:true,available:true,is_beverage:true,requires_kitchen_prep:false},
+  {id:"m15",category:"Beverages & Dessert",name:"Mango Juice",description:"Fresh pressed, seasonal",price:3.5,veg:true,available:true,is_beverage:true,requires_kitchen_prep:false,track_stock:true,stock_qty:24,low_stock_alert:6,unit:'bottle',cost_per_unit:1.10}
 ];
 const TABLE_PATTERN = [2,4,4,6,2,8];
+const ORDER_TYPES = { dine_in:'Dine-In', delivery:'Delivery', takeout:'Takeaway' };
+const PAYMENT_METHOD_LABELS = { cash:'Cash', card:'Card', upi:'UPI', orange_money:'Orange Money', split:'Split' };
 
 /* ===================== PERSISTENCE ===================== */
 function load(key, fallback){ try{ const r=localStorage.getItem(key); return r===null?fallback:JSON.parse(r); }catch(e){ return fallback; } }
@@ -1433,7 +1452,7 @@ function openTable(tableId){
 function createOrder(tableId){
   const t=tableById(tableId);
   const w = t.waiterId ? userById(t.waiterId) : null;
-  const order={ id:uid('o'), tableId, waiterId:t.waiterId||null, waiterName: w?w.name:'', items:[], discount:{type:'percent',value:0}, serviceChargeEnabled:true, tip:0, createdAt:Date.now(), registered:false };
+  const order={ id:uid('o'), tableId, waiterId:t.waiterId||null, waiterName: w?w.name:'', items:[], discount:{type:'percent',value:0}, serviceChargeEnabled:true, tip:0, createdAt:Date.now(), orderType:'dine_in', customerName:'', customerPhone:'', customerAddress:'' };
   activeOrders.push(order);
   audit('Order created','table:'+t.num,'', order.id);
   return order;
@@ -1557,9 +1576,9 @@ function renderOrderView(){
 function addItemToOrder(menuItem){
   if(menuItem.track_stock && (Number(menuItem.stock_qty)||0)<=0){ showToast(menuItem.name+' is out of stock.'); return; }
   const order=getCurrentOrder();
-  const existing=order.items.find(i=>i.itemId===menuItem.id && !i.note);
-  if(existing){ existing.qty++; if(order.registered) existing.locked=true; }
-  else order.items.push({id:uid('li'), itemId:menuItem.id, name:menuItem.name, price:menuItem.price, qty:1, note:'', locked: !!order.registered});
+  const existing=order.items.find(i=>i.itemId===menuItem.id && !i.note && !i.sentToKitchen);
+  if(existing) existing.qty++;
+  else order.items.push({id:uid('li'), itemId:menuItem.id, name:menuItem.name, price:menuItem.price, qty:1, note:'', sentToKitchen:false, requiresKitchenPrep: menuItem.requires_kitchen_prep!==false});
   audit('Item added', 'order:'+order.id, '', menuItem.name);
   persistAll(); renderFloor(); renderOrderSide();
 }
@@ -1594,22 +1613,35 @@ function renderOrderSide(){
   const discountAllowed = can('applyDiscount');
   const hasOpenShift = currentUser.role==='waiter' ? !!getOpenWaiterShift(currentUser.id) : !!getOpenCashierShift(currentUser.id);
   const payAllowed = can('processPayment') && (currentUser.role!=='waiter' || t.waiterId===currentUser.id) && hasOpenShift;
-  const anyLocked = order.items.some(it=>it.locked);
-  const hasUnlockedItems = order.items.some(it=>!it.locked);
+  const pendingKotItems = order.items.filter(it=>it.requiresKitchenPrep && !it.sentToKitchen);
+  const anySent = order.items.some(it=>it.sentToKitchen);
+  const orderType = order.orderType || 'dine_in';
 
   side.innerHTML=`
     <div class="side-scroll">
-      <div class="side-sub">Order Items${anyLocked?' <span class="lock-chip" title="Items from a registered draft can only be increased, not removed or reduced. Ask a manager to cancel/void the order to make other changes.">🔒 Registered items locked</span>':''}</div>
+      <div class="side-block">
+        <h4>Order Type</h4>
+        <div class="toggle-pair" id="orderTypeToggle" style="width:100%;">
+          ${Object.keys(ORDER_TYPES).map(k=>`<button data-otype="${k}" class="${orderType===k?'on':''}" style="flex:1;">${ORDER_TYPES[k]}</button>`).join('')}
+        </div>
+        ${orderType!=='dine_in'?`
+          <div class="form-field" style="margin-top:8px;"><label>Customer Name</label><input id="custName" value="${escapeHtml(order.customerName||'')}" placeholder="Name"></div>
+          <div class="form-field" style="margin-top:6px;"><label>Phone</label><input id="custPhone" value="${escapeHtml(order.customerPhone||'')}" placeholder="Phone number"></div>
+          ${orderType==='delivery'?`<div class="form-field" style="margin-top:6px;"><label>Delivery Address</label><input id="custAddress" value="${escapeHtml(order.customerAddress||'')}" placeholder="Address"></div>`:''}
+        `:''}
+      </div>
+
+      <div class="side-sub">Order Items${anySent?' <span class="lock-chip" title="Items already sent to the kitchen are locked. Changing them requires manager authorization, which also prints an update ticket to the kitchen.">🖨 Some items sent to kitchen</span>':''}</div>
       ${order.items.length===0?'<div class="side-empty">No items yet — tap a menu item to add it.</div>':''}
       ${order.items.map((it,idx)=>`
-        <div class="line-item ${it.locked?'li-locked':''}">
-          <div class="li-top"><div class="li-name">${escapeHtml(it.name)}${it.locked?' <span class="li-lock-icon" title="Registered — increase only">🔒</span>':''}</div>${it.locked?'':`<button class="li-remove" data-remove="${idx}">&times;</button>`}</div>
+        <div class="line-item ${it.sentToKitchen?'li-locked':''}">
+          <div class="li-top"><div class="li-name">${escapeHtml(it.name)}${it.sentToKitchen?' <span class="li-lock-icon" title="Sent to kitchen — locked">🖨</span>':''}</div>${it.sentToKitchen?'':`<button class="li-remove" data-remove="${idx}">&times;</button>`}</div>
           <div class="li-mid">
-            <div class="qty-ctl"><button data-dec="${idx}" ${it.locked?'disabled title="Registered items can only be increased — ask a manager to void the order to reduce items."':''}>−</button><span>${it.qty}</span><button data-inc="${idx}">+</button></div>
+            <div class="qty-ctl"><button data-dec="${idx}">−</button><span>${it.qty}</span><button data-inc="${idx}">+</button></div>
             <div class="li-price">${fmt(it.price*it.qty)}</div>
           </div>
-          <input class="li-note" data-note="${idx}" placeholder="Add a note (e.g. no onions)" value="${escapeHtml(it.note)}">
-          ${orders.length>1&&!it.locked?`<select class="li-move" data-move="${idx}">
+          <input class="li-note" data-note="${idx}" placeholder="Add a note (e.g. no onions)" value="${escapeHtml(it.note)}" ${it.sentToKitchen?'disabled title="Sent to kitchen — locked"':''}>
+          ${orders.length>1&&!it.sentToKitchen?`<select class="li-move" data-move="${idx}">
             <option value="">Move to…</option>
             ${orders.filter(o=>o.id!==order.id).map((o,i2)=>`<option value="${o.id}">Check ${orders.indexOf(o)+1}</option>`).join('')}
           </select>`:''}
@@ -1640,32 +1672,42 @@ function renderOrderSide(){
       </div>
     </div>
     <div class="side-actions">
-      <button class="btn btn-outline" id="btnSaveDraft">Save Draft</button>
+      <button class="btn btn-outline" id="btnSendKitchen">${pendingKotItems.length?'Send to Kitchen (KOT) — '+pendingKotItems.length+' item'+(pendingKotItems.length!==1?'s':''):(order.items.some(it=>it.requiresKitchenPrep)?'All Items Sent ✓':'No Kitchen Items')}</button>
       <button class="btn btn-amber" id="btnCheckout" ${order.items.length===0||!payAllowed?'disabled':''} title="${(!hasOpenShift && can('processPayment'))?'Payment restricted. You must open a shift before processing payments.':''}">${!can('processPayment')?'Not authorized':(!hasOpenShift?'Open Shift to Checkout':'Checkout')}</button>
       <button class="btn btn-outline" id="btnDeleteCheck">${order.items.length===0?'Remove Empty Check':'Void Order (Manager PIN Required)'}</button>
     </div>
   `;
-  const draftBtn=side.querySelector('#btnSaveDraft');
-  if(order.items.length===0){ draftBtn.textContent='Save Draft (Register Order)'; draftBtn.disabled=true; }
-  else if(hasUnlockedItems){ draftBtn.textContent = order.registered ? 'Register New Items' : 'Save Draft (Register Order)'; draftBtn.disabled=false; }
-  else { draftBtn.textContent='Order Registered ✓'; draftBtn.disabled=true; }
+  side.querySelector('#btnSendKitchen').disabled = pendingKotItems.length===0;
 
-  side.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{ const idx=+b.dataset.remove; if(order.items[idx].locked) return; audit('Item removed','order:'+order.id,order.items[idx].name,''); order.items.splice(idx,1); persistAll(); renderFloor(); renderOrderSide(); });
+  side.querySelectorAll('[data-otype]').forEach(b=>b.onclick=()=>{
+    const prev=order.orderType||'dine_in';
+    order.orderType=b.dataset.otype;
+    if(prev!==order.orderType) audit('Order type changed','order:'+order.id, ORDER_TYPES[prev], ORDER_TYPES[order.orderType]);
+    persistAll(); renderOrderSide();
+  });
+  const cn=side.querySelector('#custName'); if(cn) cn.addEventListener('change', ()=>{ order.customerName=cn.value; persistAll(); });
+  const cp=side.querySelector('#custPhone'); if(cp) cp.addEventListener('change', ()=>{ order.customerPhone=cp.value; persistAll(); });
+  const ca=side.querySelector('#custAddress'); if(ca) ca.addEventListener('change', ()=>{ order.customerAddress=ca.value; persistAll(); });
+
+  side.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{
+    const idx=+b.dataset.remove; const it=order.items[idx];
+    if(it.sentToKitchen){ requestPrintedItemChange(order, idx, 'remove'); return; }
+    audit('Item removed','order:'+order.id,it.name,''); order.items.splice(idx,1); persistAll(); renderFloor(); renderOrderSide();
+  });
   side.querySelectorAll('[data-inc]').forEach(b=>b.onclick=()=>{
-    const idx=+b.dataset.inc;
-    order.items[idx].qty++;
-    if(order.registered) order.items[idx].locked=true;
-    persistAll(); renderFloor(); renderOrderSide();
+    const idx=+b.dataset.inc; const it=order.items[idx];
+    if(it.sentToKitchen){ requestPrintedItemChange(order, idx, 'increase'); return; }
+    it.qty++; persistAll(); renderFloor(); renderOrderSide();
   });
   side.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>{
-    const idx=+b.dataset.dec;
-    if(order.items[idx].locked){ showToast('This item is part of a registered draft — ask a manager to void the order to reduce it.'); return; }
-    order.items[idx].qty--; if(order.items[idx].qty<=0) order.items.splice(idx,1); persistAll(); renderFloor(); renderOrderSide();
+    const idx=+b.dataset.dec; const it=order.items[idx];
+    if(it.sentToKitchen){ requestPrintedItemChange(order, idx, 'decrease'); return; }
+    it.qty--; if(it.qty<=0) order.items.splice(idx,1); persistAll(); renderFloor(); renderOrderSide();
   });
   side.querySelectorAll('[data-note]').forEach(inp=>inp.addEventListener('change', ()=>{ order.items[+inp.dataset.note].note=inp.value; persistAll(); }));
   side.querySelectorAll('[data-move]').forEach(sel=>sel.addEventListener('change', ()=>{
     const idx=+sel.dataset.move;
-    if(order.items[idx].locked) return;
+    if(order.items[idx].sentToKitchen) return;
     if(!sel.value) return;
     const target=activeOrders.find(o=>o.id===sel.value);
     const [moved]=order.items.splice(idx,1);
@@ -1681,17 +1723,21 @@ function renderOrderSide(){
   const tv=side.querySelector('#tipValue');
   if(tv) tv.addEventListener('input', ()=>{ order.tip=Number(tv.value)||0; persistAll(); renderOrderSide(); });
 
-  side.querySelector('#btnSaveDraft').onclick=()=>{
-    if(order.items.length===0){ showToast('Add at least one item before registering the order.'); return; }
-    const wasRegistered=order.registered;
-    order.items.forEach(it=>{ it.locked=true; });
-    order.registered=true;
-    audit(wasRegistered?'New items registered':'Order registered','order:'+order.id,'','items locked — increase-only');
+  side.querySelector('#btnSendKitchen').onclick=()=>{
+    const pending = order.items.filter(it=>it.requiresKitchenPrep && !it.sentToKitchen);
+    if(pending.length===0){ showToast('Nothing new to send — everything is already with the kitchen.'); return; }
+    pending.forEach(it=>{ it.sentToKitchen=true; });
+    audit('Sent to kitchen (KOT)','order:'+order.id,'', pending.length+' item(s)');
     persistAll(); renderOrderSide();
-    showToast(wasRegistered?'New items registered — locked to increase-only.':'Order registered — items can now only be added or increased.');
+    printKitchenTicket(order, pending.map(it=>({name:it.name, qty:it.qty, note:it.note})));
+    showToast(pending.length+' item(s) sent to kitchen.');
   };
   const coBtn=side.querySelector('#btnCheckout');
-  if(coBtn && !coBtn.disabled) coBtn.onclick=()=>{ openCheckout(order.id); };
+  if(coBtn && !coBtn.disabled) coBtn.onclick=()=>{
+    const stillPending = order.items.filter(it=>it.requiresKitchenPrep && !it.sentToKitchen);
+    if(stillPending.length>0){ showToast(stillPending.length+' kitchen item(s) haven\'t been sent to the kitchen yet.'); }
+    openCheckout(order.id);
+  };
   side.querySelector('#btnDeleteCheck').onclick=()=>{
     if(order.items.length===0){
       activeOrders=activeOrders.filter(o=>o.id!==order.id);
@@ -1704,6 +1750,41 @@ function renderOrderSide(){
       confirmCancelOrder(order);
     }
   };
+}
+function requestPrintedItemChange(order, idx, changeType){
+  const it=order.items[idx];
+  const t=tableById(order.tableId);
+  const labels={ remove:'Remove this item', decrease:'Reduce quantity by 1', increase:'Increase quantity by 1' };
+  openGeneric('Manager Authorization Required', `
+    <p class="hint">"${escapeHtml(it.name)}" (qty ${it.qty}) was already sent to the kitchen. ${labels[changeType]} requires manager authorization, and an update ticket will be printed to the kitchen so staff know about the change.</p>
+    <div class="form-field full" style="margin-top:10px;"><label>Manager PIN</label><input type="password" id="printedChangePin" maxlength="4" placeholder="••••"></div>
+    <div class="warn-text" id="printedChangeErr"></div>
+  `, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Authorize', variant:'btn-outline', handler:()=>{
+      const pin=document.getElementById('printedChangePin').value;
+      const manager=users.find(u=>u.role==='manager' && u.pin===pin);
+      if(!manager){ document.getElementById('printedChangeErr').textContent='Invalid manager PIN.'; return; }
+      let ticketNote='';
+      if(changeType==='remove'){
+        ticketNote='CANCEL: '+it.qty+'x '+it.name;
+        audit('Printed item removed (manager override)','order:'+order.id, it.name+' x'+it.qty, 'authorized by '+manager.name);
+        order.items.splice(idx,1);
+      } else if(changeType==='decrease'){
+        const before=it.qty; it.qty--;
+        ticketNote='REDUCE: '+it.name+' '+before+' → '+it.qty;
+        audit('Printed item reduced (manager override)','order:'+order.id, before, it.qty+' — authorized by '+manager.name);
+        if(it.qty<=0) order.items.splice(idx,1);
+      } else {
+        const before=it.qty; it.qty++;
+        ticketNote='INCREASE: '+it.name+' '+before+' → '+it.qty;
+        audit('Printed item increased (manager override)','order:'+order.id, before, it.qty+' — authorized by '+manager.name);
+      }
+      persistAll(); closeGeneric(); renderFloor(); renderOrderSide();
+      printKitchenUpdateTicket(order, ticketNote, manager.name);
+      showToast('Change authorized — update ticket sent to kitchen.');
+    }}
+  ]);
 }
 function confirmCancelOrder(order){
   const t=tableById(order.tableId);
@@ -1726,9 +1807,11 @@ function confirmCancelOrder(order){
 async function doCancelOrder(order, manager){
   const t=tableById(order.tableId);
   const totals=calcTotals(order);
+  const sentItems = order.items.filter(it=>it.sentToKitchen);
   audit('Order cancelled', 'order:'+order.id, `${order.items.length} item(s), ${fmt(totals.grandTotal)}`, `cancelled — authorized by ${manager.name}, requested by ${currentUser.name}`);
   activeOrders=activeOrders.filter(o=>o.id!==order.id);
   persistAll(); renderFloor();
+  if(sentItems.length){ printKitchenUpdateTicket(order, 'FULL ORDER CANCELLED — '+sentItems.map(it=>it.qty+'x '+it.name).join(', '), manager.name); }
   deleteRowFromSupabase('orders', order.id);
   await flushSupabaseSync();
   const remaining=getTableOrders(t.id);
@@ -1825,6 +1908,7 @@ function renderCheckoutBody(){
       <button class="pay-tab ${payMethod==='cash'?'active':''}" data-pm="cash">Cash</button>
       <button class="pay-tab ${payMethod==='card'?'active':''}" data-pm="card">Card</button>
       <button class="pay-tab ${payMethod==='upi'?'active':''}" data-pm="upi">UPI</button>
+      <button class="pay-tab ${payMethod==='orange_money'?'active':''}" data-pm="orange_money">Orange Money</button>
       <button class="pay-tab ${payMethod==='split'?'active':''}" data-pm="split">Split</button>
     </div>
     <div class="pay-panel ${payMethod==='cash'?'active':''}" id="panelCash">
@@ -1833,6 +1917,7 @@ function renderCheckoutBody(){
     </div>
     <div class="pay-panel ${payMethod==='card'?'active':''}" id="panelCard"><div class="form-field"><label>Card Reference (optional)</label><input type="text" id="cardRef" placeholder="Last 4 digits"></div></div>
     <div class="pay-panel ${payMethod==='upi'?'active':''}" id="panelUpi"><div class="form-field"><label>UPI Reference (optional)</label><input type="text" id="upiRef" placeholder="Transaction ID"></div></div>
+    <div class="pay-panel ${payMethod==='orange_money'?'active':''}" id="panelOrangeMoney"><div class="form-field"><label>Customer Phone Number</label><input type="text" id="omPhone" placeholder="e.g. 6XX XX XX XX"></div><div class="form-field" style="margin-top:8px;"><label>Transaction Reference (optional)</label><input type="text" id="omRef" placeholder="Orange Money reference"></div></div>
     <div class="pay-panel ${payMethod==='split'?'active':''}" id="panelSplit">
       <div id="splitRows"></div>
       <button class="btn btn-outline-dark" id="btnAddSplit" style="margin-top:8px;">+ Add payment method</button>
@@ -1861,6 +1946,7 @@ function renderSplitRows(){
         <option value="cash" ${p.method==='cash'?'selected':''}>Cash</option>
         <option value="card" ${p.method==='card'?'selected':''}>Card</option>
         <option value="upi" ${p.method==='upi'?'selected':''}>UPI</option>
+        <option value="orange_money" ${p.method==='orange_money'?'selected':''}>Orange Money</option>
       </select>
       <input type="number" min="0" step="0.5" data-sp-amount="${idx}" value="${p.amount}">
       <button class="split-remove" data-sp-remove="${idx}">&times;</button>
@@ -1894,6 +1980,8 @@ document.getElementById('btnConfirmPay').addEventListener('click', async ()=>{
     paymentDetail={reference:(document.getElementById('cardRef')||{}).value||''};
   } else if(payMethod==='upi'){
     paymentDetail={reference:(document.getElementById('upiRef')||{}).value||''};
+  } else if(payMethod==='orange_money'){
+    paymentDetail={phone:(document.getElementById('omPhone')||{}).value||'', reference:(document.getElementById('omRef')||{}).value||''};
   } else if(payMethod==='split'){
     const sum=splitParts.reduce((s,p)=>s+(Number(p.amount)||0),0);
     if(Math.abs(sum-totals.grandTotal)>0.01){ showToast('Split amounts must equal the total due'); return; }
@@ -1905,6 +1993,7 @@ document.getElementById('btnConfirmPay').addEventListener('click', async ()=>{
   settings.receiptCounter++;
   const record={
     id:uid('h'), receiptNo, tableNum:t.num, waiter:order.waiterName||'', cashierUser:currentUser.name, cashierRole:currentUser.role,
+    orderType: order.orderType||'dine_in', customerName:order.customerName||'', customerPhone:order.customerPhone||'', customerAddress:order.customerAddress||'',
     items:order.items.map(i=>({itemId:i.itemId, name:i.name, price:i.price, qty:i.qty, note:i.note})),
     subtotal:totals.subtotal, discountAmount:totals.discountAmount, discount:{...order.discount},
     serviceCharge:totals.serviceCharge, tax:totals.tax, tip:totals.tip, grandTotal:totals.grandTotal,
@@ -1921,7 +2010,7 @@ document.getElementById('btnConfirmPay').addEventListener('click', async ()=>{
     if(shift){
       let cashPart=0, nonCashPart=0;
       if(payMethod==='cash') cashPart=totals.grandTotal;
-      else if(payMethod==='card'||payMethod==='upi') nonCashPart=totals.grandTotal;
+      else if(payMethod==='card'||payMethod==='upi'||payMethod==='orange_money') nonCashPart=totals.grandTotal;
       else if(payMethod==='split') splitParts.forEach(p=>{ if(p.method==='cash') cashPart+=Number(p.amount)||0; else nonCashPart+=Number(p.amount)||0; });
       shift.cashCollected += cashPart; shift.nonCashCollected += nonCashPart; shift.salesTotal += totals.grandTotal;
     }
@@ -1934,7 +2023,7 @@ document.getElementById('btnConfirmPay').addEventListener('click', async ()=>{
     const shift=getOpenCashierShift(currentUser.id);
     if(shift){
       let nonCashPart=0;
-      if(payMethod==='card'||payMethod==='upi') nonCashPart=totals.grandTotal;
+      if(payMethod==='card'||payMethod==='upi'||payMethod==='orange_money') nonCashPart=totals.grandTotal;
       else if(payMethod==='split') splitParts.forEach(p=>{ if(p.method!=='cash') nonCashPart+=Number(p.amount)||0; });
       shift.nonCashSalesDirect += nonCashPart; shift.salesTotal += totals.grandTotal;
     }
@@ -1962,35 +2051,107 @@ document.getElementById('btnConfirmPay').addEventListener('click', async ()=>{
 /* ===================== RECEIPT ===================== */
 let receiptData=null;
 function openReceiptFromRecord(record){ receiptData=record; document.getElementById('receiptBody').innerHTML=receiptHtml(record); openModal('modalReceipt'); }
+function aggregateReceiptItems(items){
+  const map = new Map();
+  const order = [];
+  items.forEach(it=>{
+    const key = it.name+'|'+(it.note||'');
+    if(map.has(key)){
+      const existing = map.get(key);
+      existing.qty += it.qty;
+    } else {
+      const entry = { name:it.name, note:it.note, qty:it.qty, price:it.price };
+      map.set(key, entry);
+      order.push(entry);
+    }
+  });
+  return order;
+}
 function receiptHtml(r){
   const pmLine = r.paymentMethod==='split'
-    ? r.paymentDetail.parts.map(p=>`<div class="meta-row"><span>${p.method}</span><span>${fmt(p.amount)}</span></div>`).join('')
+    ? r.paymentDetail.parts.map(p=>`<div class="meta-row"><span style="text-transform:uppercase;">${PAYMENT_METHOD_LABELS[p.method]||p.method}</span><span>${fmt(p.amount)}</span></div>`).join('')
     : r.paymentMethod==='cash'
-      ? `<div class="meta-row"><span>Amount received</span><span>${fmt(r.paymentDetail.tendered)}</span></div><div class="meta-row"><span>Change</span><span>${fmt(r.paymentDetail.change)}</span></div>`
-      : `<div class="meta-row"><span>Reference</span><span>${escapeHtml(r.paymentDetail.reference||'—')}</span></div>`;
+      ? `<div class="meta-row"><span>AMOUNT PAID</span><span>${fmt(r.paymentDetail.tendered)}</span></div><div class="meta-row"><span>CHANGE</span><span>${fmt(r.paymentDetail.change)}</span></div>`
+      : `<div class="meta-row"><span>REF</span><span>${escapeHtml(r.paymentDetail.reference||'—')}</span></div>`;
+  const itemCount = r.items.reduce((s,it)=>s+it.qty,0);
   return `
     <div class="receipt-head">
+      ${settings.logoImage?`<img src="${escapeHtml(settings.logoImage)}" class="receipt-logo-img" alt="">`:''}
       <div class="rname">${escapeHtml(settings.restaurantName)}</div>
+      <div class="rtitle">RESTAURANT RECEIPT</div>
       <div class="raddr">${escapeHtml(settings.address)}</div>
-      <div class="rtax">Tax ID: ${escapeHtml(settings.taxId)}</div>
+      <div class="raddr">Tax ID: ${escapeHtml(settings.taxId)}</div>
     </div>
     <div class="dashed"></div>
-    <div class="meta-row"><span>Receipt ${r.receiptNo}${r.voided?' <b>(VOIDED)</b>':''}</span><span>${new Date(r.datetime).toLocaleString()}</span></div>
-    <div class="meta-row"><span>Table T${r.tableNum}</span><span>Waiter: ${escapeHtml(r.waiter||'—')}</span></div>
-    <div class="meta-row"><span>Processed by</span><span>${escapeHtml(r.cashierUser)} (${r.cashierRole})</span></div>
+    <div class="meta-row"><span>Receipt ${r.receiptNo}${r.voided?' <b>(VOIDED)</b>':''}</span><span>${ORDER_TYPES[r.orderType||'dine_in'].toUpperCase()}</span></div>
+    <div class="meta-row"><span>${r.orderType==='dine_in'?'Table T'+r.tableNum:'Order #'+r.id.slice(-5).toUpperCase()}</span><span>Waiter: ${escapeHtml(r.waiter||'—')}</span></div>
+    ${r.orderType && r.orderType!=='dine_in' ? `<div class="meta-row"><span>Customer</span><span>${escapeHtml(r.customerName||'—')}</span></div>${r.customerPhone?`<div class="meta-row"><span>Phone</span><span>${escapeHtml(r.customerPhone)}</span></div>`:''}${r.orderType==='delivery'&&r.customerAddress?`<div class="meta-row"><span>Address</span><span>${escapeHtml(r.customerAddress)}</span></div>`:''}` : ''}
+    <div class="meta-row"><span>Served by</span><span>${escapeHtml(r.cashierUser)}</span></div>
     <div class="dashed"></div>
-    ${r.items.map(it=>`<div class="receipt-item"><div class="r1"><span>${it.qty} x ${escapeHtml(it.name)}</span><span>${fmt(it.price*it.qty)}</span></div>${it.note?`<div class="r2">${escapeHtml(it.note)}</div>`:''}</div>`).join('')}
+    ${aggregateReceiptItems(r.items).map(it=>`<div class="receipt-item"><div class="r1"><span>${escapeHtml(it.name)}${it.qty>1?' x'+it.qty:''}</span><span>${fmt(it.price*it.qty)}</span></div>${it.note?`<div class="r2">${escapeHtml(it.note)}</div>`:''}</div>`).join('')}
     <div class="dashed"></div>
-    <div class="meta-row"><span>Subtotal</span><span>${fmt(r.subtotal)}</span></div>
-    ${r.discountAmount>0?`<div class="meta-row"><span>Discount (${r.discount.type==='percent'?r.discount.value+'%':'flat'})</span><span>-${fmt(r.discountAmount)}</span></div>`:''}
-    ${r.serviceCharge>0?`<div class="meta-row"><span>Service charge</span><span>${fmt(r.serviceCharge)}</span></div>`:''}
-    <div class="meta-row"><span>Tax</span><span>${fmt(r.tax)}</span></div>
-    ${r.tip>0?`<div class="meta-row"><span>Tip</span><span>${fmt(r.tip)}</span></div>`:''}
-    <div class="dashed"></div>
-    <div class="trow grand"><span>Total</span><span>${fmt(r.grandTotal)}</span></div>
-    <div class="meta-row" style="margin-top:8px;"><span>Payment</span><span style="text-transform:uppercase;">${r.paymentMethod}</span></div>
+    <div class="meta-row"><span>SUBTOTAL</span><span>${fmt(r.subtotal)}</span></div>
+    ${r.discountAmount>0?`<div class="meta-row"><span>DISCOUNT (${r.discount.type==='percent'?r.discount.value+'%':'flat'})</span><span>-${fmt(r.discountAmount)}</span></div>`:''}
+    ${r.serviceCharge>0?`<div class="meta-row"><span>SERVICE CHARGE</span><span>${fmt(r.serviceCharge)}</span></div>`:''}
+    <div class="meta-row"><span>TAX</span><span>${fmt(r.tax)}</span></div>
+    ${r.tip>0?`<div class="meta-row"><span>TIP</span><span>${fmt(r.tip)}</span></div>`:''}
+    <div class="receipt-total-row"><span>TOTAL</span><span>${fmt(r.grandTotal)}</span></div>
+    <div class="meta-row" style="margin-top:6px;"><span style="font-weight:700;">PAYMENT</span><span style="font-weight:700;">${(PAYMENT_METHOD_LABELS[r.paymentMethod]||r.paymentMethod).toUpperCase()}</span></div>
     ${pmLine}
+    <div class="dashed"></div>
+    <div class="receipt-items-sold">* ITEMS SOLD ${itemCount}</div>
+    <div class="receipt-thanks">THANK YOU!</div>
+    <div class="receipt-thanks">PLEASE COME AGAIN</div>
+    <div class="receipt-timestamp">${new Date(r.datetime).toLocaleString()}</div>
   `;
+}
+function kitchenTicketHtml(order, items){
+  const t=tableById(order.tableId);
+  const typeLabel = ORDER_TYPES[order.orderType||'dine_in'];
+  const custLine = order.orderType && order.orderType!=='dine_in'
+    ? `<div class="meta-row"><span>Customer</span><span>${escapeHtml(order.customerName||'—')}</span></div>${order.customerPhone?`<div class="meta-row"><span>Phone</span><span>${escapeHtml(order.customerPhone)}</span></div>`:''}${order.orderType==='delivery'&&order.customerAddress?`<div class="meta-row"><span>Address</span><span>${escapeHtml(order.customerAddress)}</span></div>`:''}`
+    : '';
+  return `
+    <div class="kt-head">
+      <div class="kt-title">KITCHEN TICKET</div>
+      <div class="kt-otype">${typeLabel.toUpperCase()}</div>
+      <div class="kt-table">${order.orderType==='dine_in'?'TABLE T'+(t?t.num:'?'):'ORDER #'+order.id.slice(-5).toUpperCase()}</div>
+    </div>
+    <div class="dashed"></div>
+    <div class="meta-row"><span>Waiter</span><span>${escapeHtml(order.waiterName||'—')}</span></div>
+    <div class="meta-row"><span>Fired</span><span>${new Date().toLocaleString()}</span></div>
+    ${custLine}
+    <div class="dashed"></div>
+    ${items.map(it=>`<div class="kt-item"><div class="kt-qty">${it.qty}x</div><div class="kt-name">${escapeHtml(it.name)}${it.note?`<div class="kt-note">${escapeHtml(it.note)}</div>`:''}</div></div>`).join('')}
+    <div class="dashed"></div>
+    <div class="kt-footer">${items.length} item${items.length!==1?'s':''} — send to kitchen</div>
+  `;
+}
+function printKitchenTicket(order, items){
+  if(!items.length) return;
+  document.getElementById('printArea').innerHTML=kitchenTicketHtml(order, items);
+  window.print();
+}
+function kitchenUpdateTicketHtml(order, noteLine, managerName){
+  const t=tableById(order.tableId);
+  return `
+    <div class="kt-head">
+      <div class="kt-title" style="color:#c0392b;">KITCHEN UPDATE</div>
+      <div class="kt-otype">${ORDER_TYPES[order.orderType||'dine_in'].toUpperCase()}</div>
+      <div class="kt-table">${order.orderType==='dine_in'?'TABLE T'+(t?t.num:'?'):'ORDER #'+order.id.slice(-5).toUpperCase()}</div>
+    </div>
+    <div class="dashed"></div>
+    <div class="meta-row"><span>Time</span><span>${new Date().toLocaleString()}</span></div>
+    <div class="meta-row"><span>Authorized by</span><span>${escapeHtml(managerName)}</span></div>
+    <div class="dashed"></div>
+    <div class="kt-update-note">${escapeHtml(noteLine)}</div>
+    <div class="dashed"></div>
+    <div class="kt-footer">Please adjust preparation accordingly</div>
+  `;
+}
+function printKitchenUpdateTicket(order, noteLine, managerName){
+  document.getElementById('printArea').innerHTML=kitchenUpdateTicketHtml(order, noteLine, managerName);
+  window.print();
 }
 document.getElementById('btnPrintReceipt').addEventListener('click', ()=>{ document.getElementById('printArea').innerHTML=receiptHtml(receiptData); window.print(); });
 
@@ -1999,7 +2160,7 @@ function renderHistory(){
   const isOwnOnly = currentUser.role==='waiter';
   const filters = document.getElementById('histFilters');
   filters.innerHTML = `
-    <select class="filter-select" id="fPay"><option value="all">All payment methods</option><option value="cash">Cash</option><option value="card">Card</option><option value="upi">UPI</option><option value="split">Split</option></select>
+    <select class="filter-select" id="fPay"><option value="all">All payment methods</option><option value="cash">Cash</option><option value="card">Card</option><option value="upi">UPI</option><option value="orange_money">Orange Money</option><option value="split">Split</option></select>
     <input class="filter-input" id="fTable" type="text" placeholder="Table #">
     ${!isOwnOnly?`<select class="filter-select" id="fWaiter"><option value="all">All waiters</option>${users.filter(u=>u.role==='waiter').map(u=>`<option value="${escapeHtml(u.name)}">${escapeHtml(u.name)}</option>`).join('')}</select>`:''}
     ${!isOwnOnly?`<select class="filter-select" id="fCashier"><option value="all">All processed-by</option>${users.map(u=>`<option value="${escapeHtml(u.name)}">${escapeHtml(u.name)}</option>`).join('')}</select>`:''}
@@ -2060,7 +2221,7 @@ function renderHistoryTable(){
       <td>${r.receiptNo}${r.voided?'<span class="badge-voided">Voided</span>':''}</td>
       <td>T${r.tableNum}</td><td>${escapeHtml(r.waiter||'—')}</td><td>${escapeHtml(r.cashierUser)}</td>
       <td>${fmt(r.grandTotal)}</td><td>${new Date(r.datetime).toLocaleString()}</td>
-      <td><span class="pm-badge pm-${r.paymentMethod}">${r.paymentMethod}</span></td>
+      <td><span class="pm-badge pm-${r.paymentMethod}">${PAYMENT_METHOD_LABELS[r.paymentMethod]||r.paymentMethod}</span></td>
       <td>
         ${(can('reprintAny')||(can('reprintOwn')&&(r.waiter===currentUser.name||r.cashierUser===currentUser.name)))?`<button class="small-btn" data-reprint="${r.id}">Reprint</button>`:''}
         ${can('reopenTransaction')&&!r.voided?`<button class="small-btn danger" data-reopen="${r.id}">Reopen</button>`:''}
@@ -2488,6 +2649,41 @@ function computeUsageSummary(fromStr, toStr){
     .filter(x=>x.used>0).sort((a,b)=>b.used-a.used);
   return { itemSales, ingredientRows, orderCount:rows.length };
 }
+function bucketKeyForDate(dateMs, granularity){
+  const d=new Date(dateMs);
+  if(granularity==='month') return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  if(granularity==='week'){
+    const day=d.getDay(); const diff=(day===0?-6:1)-day;
+    const monday=new Date(d); monday.setHours(0,0,0,0); monday.setDate(d.getDate()+diff);
+    return monday.toISOString().slice(0,10);
+  }
+  return d.toISOString().slice(0,10);
+}
+function bucketLabel(key, granularity){
+  if(granularity==='month'){ const [y,m]=key.split('-'); return new Date(Number(y),Number(m)-1,1).toLocaleDateString(undefined,{month:'short',year:'numeric'}); }
+  if(granularity==='week'){ const d=new Date(key+'T00:00:00'); return 'Wk of '+d.toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
+  return new Date(key+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'});
+}
+function computeItemSalesBreakdown(fromStr, toStr, granularity){
+  let rows=history.filter(r=>!r.voided);
+  if(fromStr){ const start=new Date(fromStr+'T00:00:00').getTime(); rows=rows.filter(r=>new Date(r.datetime).getTime()>=start); }
+  if(toStr){ const end=new Date(toStr+'T23:59:59').getTime(); rows=rows.filter(r=>new Date(r.datetime).getTime()<=end); }
+  const bucketSet=new Set();
+  const perItem={};
+  rows.forEach(r=>{
+    const bucketKey=bucketKeyForDate(r.datetime, granularity);
+    bucketSet.add(bucketKey);
+    (r.items||[]).forEach(li=>{
+      const key=li.itemId||('name:'+li.name);
+      if(!perItem[key]) perItem[key]={ name:li.name, buckets:{}, total:0 };
+      perItem[key].buckets[bucketKey]=(perItem[key].buckets[bucketKey]||0)+(li.qty||0);
+      perItem[key].total+=(li.qty||0);
+    });
+  });
+  const buckets=Array.from(bucketSet).sort();
+  const items=Object.values(perItem).sort((a,b)=>b.total-a.total);
+  return { buckets, items };
+}
 function stockStatusChip(stockQty, lowAlert){
   if(stockQty<=0) return '<span class="stock-badge out" style="position:static;">Out of Stock</span>';
   if(stockQty<=lowAlert) return '<span class="stock-badge low" style="position:static;">Low Stock</span>';
@@ -2499,6 +2695,7 @@ function renderInvUsage(body){
   ['uFrom','uTo'].forEach(id=>document.getElementById(id).addEventListener('input', renderUsageBody));
   renderUsageBody();
 }
+let usageGranularity='day';
 function renderUsageBody(){
   const el=document.getElementById('usageBody'); if(!el) return;
   const from=document.getElementById('uFrom').value, to=document.getElementById('uTo').value;
@@ -2520,7 +2717,35 @@ function renderUsageBody(){
     <table class="data-table"><thead><tr><th>Ingredient</th><th>Used</th><th>Current Stock</th><th>Status</th></tr></thead><tbody>
       ${ingredientRows.map(x=>`<tr><td>${escapeHtml(x.name)}</td><td>${x.used} ${escapeHtml(x.unit)}</td><td>${x.stockQty} ${escapeHtml(x.unit)}</td><td>${stockStatusChip(x.stockQty,x.lowAlert)}</td></tr>`).join('')}
     </tbody></table>`}
+    <div class="section-title">Units Sold — Day / Week / Month Breakdown</div>
+    <div class="zone-tabs" id="usageGranTabs" style="margin-bottom:12px;">
+      <button class="zone-tab ${usageGranularity==='day'?'active':''}" data-gran="day">Day</button>
+      <button class="zone-tab ${usageGranularity==='week'?'active':''}" data-gran="week">Week</button>
+      <button class="zone-tab ${usageGranularity==='month'?'active':''}" data-gran="month">Month</button>
+    </div>
+    <div id="usageBreakdownWrap"></div>
   `;
+  document.getElementById('usageGranTabs').addEventListener('click', (e)=>{
+    const btn=e.target.closest('[data-gran]'); if(!btn) return;
+    usageGranularity=btn.dataset.gran; renderUsageBody();
+  });
+  renderUsageBreakdown(from, to);
+}
+function renderUsageBreakdown(from, to){
+  const wrap=document.getElementById('usageBreakdownWrap'); if(!wrap) return;
+  const {buckets, items} = computeItemSalesBreakdown(from, to, usageGranularity);
+  if(items.length===0 || buckets.length===0){ wrap.innerHTML='<div class="empty-note">No sales in this range to break down.</div>'; return; }
+  wrap.innerHTML = `<div style="overflow-x:auto;"><table class="data-table"><thead><tr>
+    <th style="position:sticky; left:0; background:var(--charcoal-2);">Item</th>
+    ${buckets.map(b=>`<th style="white-space:nowrap;">${bucketLabel(b, usageGranularity)}</th>`).join('')}
+    <th>Total</th>
+  </tr></thead><tbody>
+    ${items.map(it=>`<tr>
+      <td style="position:sticky; left:0; background:var(--charcoal-2); font-weight:600;">${escapeHtml(it.name)}</td>
+      ${buckets.map(b=>`<td>${it.buckets[b]||''}</td>`).join('')}
+      <td style="font-weight:700;">${it.total}</td>
+    </tr>`).join('')}
+  </tbody></table></div>`;
 }
 function renderInvIngredients(body){
   body.innerHTML = `
@@ -2756,7 +2981,7 @@ function renderAcctOverviewStats(){
   const sc=rows.reduce((s,r)=>s+r.serviceCharge,0);
   const tips=rows.reduce((s,r)=>s+r.tip,0);
   const totalCollected=rows.reduce((s,r)=>s+r.grandTotal,0);
-  const byMethod={cash:0,card:0,upi:0,split:0};
+  const byMethod={cash:0,card:0,upi:0,orange_money:0,split:0};
   rows.forEach(r=>{ byMethod[r.paymentMethod]=(byMethod[r.paymentMethod]||0)+r.grandTotal; });
   el.innerHTML = cashRegisterHtml + `
     <div class="section-title" style="margin-top:0;">Sales Summary</div>
@@ -2771,7 +2996,7 @@ function renderAcctOverviewStats(){
       <div class="stat-box"><div class="l">Transactions</div><div class="v">${rows.length}</div></div>
     </div>
     <div class="section-title">Collected by Payment Method</div>
-    ${Object.entries(byMethod).map(([k,v])=>`<div class="pm-bar-row"><div class="pm-bar-label">${k}</div><div class="pm-bar-track"><div class="pm-bar-fill" style="width:${(v/Math.max(1,totalCollected)*100)}%;"></div></div><div class="pm-bar-val">${fmt(v)}</div></div>`).join('')}
+    ${Object.entries(byMethod).map(([k,v])=>`<div class="pm-bar-row"><div class="pm-bar-label">${PAYMENT_METHOD_LABELS[k]||k}</div><div class="pm-bar-track"><div class="pm-bar-fill" style="width:${(v/Math.max(1,totalCollected)*100)}%;"></div></div><div class="pm-bar-val">${fmt(v)}</div></div>`).join('')}
   `;
 }
 function exportFinanceCsv(){
@@ -3429,6 +3654,8 @@ function openItemForm(m){
     <div class="form-field check"><input type="checkbox" id="ifVeg" ${editing&&m.veg?'checked':''}><label for="ifVeg">Vegetarian</label></div>
     <div class="form-field check"><input type="checkbox" id="ifAvail" ${(!editing||m.available)?'checked':''}><label for="ifAvail">Available</label></div>
     <div class="form-field check"><input type="checkbox" id="ifBeverage" ${editing&&m.is_beverage?'checked':''}><label for="ifBeverage">Beverage item (for revenue reporting)</label></div>
+    <div class="form-field check"><input type="checkbox" id="ifKitchenPrep" ${(!editing || m.requires_kitchen_prep!==false)?'checked':''}><label for="ifKitchenPrep">Requires kitchen prep (send to kitchen printer)</label></div>
+    <p class="hint full" style="margin-top:-6px;">Uncheck for beverages, retail add-ons, or anything that doesn't need a kitchen ticket.</p>
     <div class="form-field check full"><input type="checkbox" id="ifTrackStock" ${editing&&m.track_stock?'checked':''}><label for="ifTrackStock">Track Inventory (this item is stocked directly, e.g. bottled drinks)</label></div>
     <div id="ifStockFields" style="display:${editing&&m.track_stock?'contents':'none'};">
       <div class="form-field"><label>Stock Quantity</label><input id="ifStockQty" type="number" step="1" value="${editing&&m.stock_qty!=null?m.stock_qty:0}"></div>
@@ -3453,6 +3680,7 @@ function openItemForm(m){
       const veg=document.getElementById('ifVeg').checked;
       const available=document.getElementById('ifAvail').checked;
       const is_beverage=document.getElementById('ifBeverage').checked;
+      const requires_kitchen_prep=document.getElementById('ifKitchenPrep').checked;
       const urlVal=document.getElementById('ifImageUrl').value.trim();
       const image = pendingImage || (urlVal || null);
       const track_stock=document.getElementById('ifTrackStock').checked;
@@ -3462,8 +3690,8 @@ function openItemForm(m){
       const cost_per_unit=Number(document.getElementById('ifCostPerUnit').value)||0;
       const recipe = recipeState.filter(r=>r.ingredientId && Number(r.qty)>0).map(r=>({ingredientId:r.ingredientId, qty:Number(r.qty)}));
       if(!name){ showToast('Item name is required.'); return; }
-      if(editing){ Object.assign(m, {name,description,category,price,veg,available,is_beverage,image,track_stock,stock_qty,low_stock_alert,unit,cost_per_unit,recipe}); audit('Menu item updated', name, '', 'edited'); }
-      else { menu.push({id:uid('m'), name, description, category, price, veg, available, is_beverage, image, track_stock, stock_qty, low_stock_alert, unit, cost_per_unit, recipe}); audit('Menu item created', name, '', 'created'); }
+      if(editing){ Object.assign(m, {name,description,category,price,veg,available,is_beverage,requires_kitchen_prep,image,track_stock,stock_qty,low_stock_alert,unit,cost_per_unit,recipe}); audit('Menu item updated', name, '', 'edited'); }
+      else { menu.push({id:uid('m'), name, description, category, price, veg, available, is_beverage, requires_kitchen_prep, image, track_stock, stock_qty, low_stock_alert, unit, cost_per_unit, recipe}); audit('Menu item created', name, '', 'created'); }
       persistAll(); closeGeneric(); renderSettings(); showToast('Menu item saved');
     }}
   ]);
