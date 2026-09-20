@@ -9,7 +9,7 @@
 <style>
 :root{
   --charcoal:#171614; --charcoal-2:#201E1B; --charcoal-3:#2B2824; --charcoal-4:#38342E;
-  --amber:#D9A441; --amber-bright:#F0C267; --sage:#4A8A63; --rust:#C25439; --plum:#9C7BB0; --teal:#3E8FA6;
+  --amber:#D9A441; --amber-bright:#F0C267; --sage:#4A8A63; --rust:#C25439; --plum:#9C7BB0; --teal:#3E8FA6; --yellow:#E0C13A;
   --slate:#9A968B; --slate-dim:#6E6A61; --ticket:#F4F0E6; --ticket-line:#DED6C1; --white:#F7F5EF;
   --font-display:"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,'Times New Roman',serif;
   --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -200,6 +200,22 @@ main{ flex:1; overflow:hidden; position:relative; }
 .st-available .tstatus{ color:var(--sage); } .st-occupied .tstatus{ color:var(--amber); } .st-reserved .tstatus{ color:var(--plum); }
 .twaiter{ font-size:10.5px; opacity:.8; margin-top:1px; }
 .ttotal{ font-family:var(--font-mono); font-size:12.5px; color:var(--amber); font-weight:700; }
+
+.bcard{ background:var(--charcoal-2); border:1px solid rgba(255,255,255,0.06); border-radius:var(--radius); padding:16px 14px; min-height:150px; position:relative; transition:transform .15s ease, border-color .15s ease; display:flex; flex-direction:column; justify-content:space-between; }
+.bcard:hover{ transform:translateY(-2px); }
+.bcard .sbar{ position:absolute; top:0; left:0; right:0; height:3px; border-radius:var(--radius) var(--radius) 0 0; }
+.bcard.st-available .sbar{ background:var(--sage); } .bcard.st-occupied .sbar{ background:var(--rust); } .bcard.st-reserved .sbar{ background:var(--yellow); }
+.bcard.st-available{ border-color:rgba(74,138,99,0.35); } .bcard.st-occupied{ border-color:rgba(194,84,57,0.4); } .bcard.st-reserved{ border-color:rgba(224,193,58,0.4); }
+.bname{ font-family:var(--font-mono); font-size:17px; font-weight:700; }
+.bstatus-pill{ font-size:9px; text-transform:uppercase; letter-spacing:.06em; font-weight:700; padding:2px 8px; border-radius:9px; }
+.bstatus-pill.st-available{ background:rgba(74,138,99,0.18); color:var(--sage); } .bstatus-pill.st-occupied{ background:rgba(194,84,57,0.2); color:var(--rust); } .bstatus-pill.st-reserved{ background:rgba(224,193,58,0.2); color:var(--yellow); }
+.btimer{ font-family:var(--font-mono); font-size:22px; font-weight:700; color:var(--white); letter-spacing:.02em; margin-top:8px; }
+.bmode-label{ font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--slate-dim); margin-top:2px; }
+.bbalance{ font-family:var(--font-mono); font-size:16px; font-weight:700; color:var(--amber); margin-top:4px; }
+.bfoot{ display:flex; gap:6px; margin-top:10px; }
+.bfoot .btn{ flex:1; padding:8px 6px; font-size:11.5px; }
+.bdel{ position:absolute; top:8px; right:8px; background:none; border:none; color:var(--slate-dim); font-size:14px; cursor:pointer; }
+.bdel:hover{ color:var(--rust); }
 
 .ctx-menu{ position:fixed; background:var(--charcoal-3); border:1px solid rgba(217,164,65,0.3); border-radius:6px; padding:6px; z-index:400; min-width:190px; box-shadow:0 10px 30px rgba(0,0,0,0.5); }
 .ctx-item{ display:block; width:100%; text-align:left; background:none; border:none; color:var(--white); padding:9px 12px; font-size:13px; border-radius:4px; }
@@ -515,6 +531,20 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
       <div id="tableGridWrap"></div>
     </div></div>
 
+    <div class="view" id="view-billiard"><div class="pad">
+      <div class="head-row"><h2>Billiard / Pool Tables</h2>
+        <div style="display:flex; align-items:center; gap:16px;">
+          <div class="legend">
+            <span><i class="dot" style="background:var(--sage)"></i>Available</span>
+            <span><i class="dot" style="background:var(--rust)"></i>Occupied</span>
+            <span><i class="dot" style="background:var(--yellow)"></i>Reserved</span>
+          </div>
+          <button class="btn btn-outline-dark" id="btnAddBilliardTable" style="width:auto; padding:7px 14px;">+ Add Table</button>
+        </div>
+      </div>
+      <div class="table-grid" id="billiardGridWrap"></div>
+    </div></div>
+
     <div class="view" id="view-order">
       <div class="order-wrap">
         <div class="order-main">
@@ -620,7 +650,7 @@ const DEFAULT_SETTINGS = {
   restaurantName:"Asmara & Addis", address:"14 Marina Road, Conakry", taxId:"TX-2291-04",
   taxRate:8, serviceChargeRate:10, currency:"$", tableCount:12,
   tipEnabled:true, serviceChargeEnabled:true, waiterCanDiscount:true, receiptCounter:1, logoImage:null,
-  themeColor:"amber"
+  themeColor:"amber", billiardHourlyRate:50000, billiardFixedRate:25000
 };
 const THEMES = {
   amber:   {label:"Amber",    accent:"#D9A441", bright:"#F0C267"},
@@ -675,6 +705,12 @@ const DEFAULT_INGREDIENTS = [
   {id:'ing3', name:'Berbere Spice Mix', unit:'g', stock_qty:2000, low_stock_alert:200, cost_per_unit:0.02, batches:[]}
 ];
 let ingredients = load('posv2_ingredients', DEFAULT_INGREDIENTS);
+const DEFAULT_BILLIARD_TABLES = [
+  {id:'bt1', name:'Table 1', status:'available', mode:null, rate:null, fixedAmount:null, startedAt:null, startedBy:null},
+  {id:'bt2', name:'Table 2', status:'available', mode:null, rate:null, fixedAmount:null, startedAt:null, startedBy:null}
+];
+let billiardTables = load('posv2_billiardTables', null);
+if(!billiardTables){ billiardTables = DEFAULT_BILLIARD_TABLES.map(t=>({...t})); save('posv2_billiardTables', billiardTables); }
 function zoneForIndex(i, count){ return i < Math.ceil(count*0.7) ? 'indoor' : 'outdoor'; }
 let tables = load('posv2_tables', null);
 if(!tables){
@@ -706,11 +742,12 @@ const DEFAULT_LEDGER_ACCOUNTS = [
   {id:'4010', code:'4010', name:'Food Sales', type:'revenue'},
   {id:'4020', code:'4020', name:'Beverage Sales', type:'revenue'},
   {id:'4030', code:'4030', name:'Service Charge Income', type:'revenue'},
+  {id:'4040', code:'4040', name:'Billiard / Games Revenue', type:'revenue'},
   {id:'4900', code:'4900', name:'Discounts Given', type:'contra_revenue'},
   {id:'5110', code:'5110', name:'Cost of Goods Sold', type:'expense'},
   {id:'5900', code:'5900', name:'Operating Expenses', type:'expense'}
 ];
-const LEDGER_SCHEMA_VERSION = 3;
+const LEDGER_SCHEMA_VERSION = 4;
 let ledgerAccounts = load('posv2_ledgerAccounts', null);
 if(!ledgerAccounts){ ledgerAccounts = DEFAULT_LEDGER_ACCOUNTS.map(a=>({...a})); save('posv2_ledgerAccounts', ledgerAccounts); }
 (function migrateLedgerSchema(){
@@ -729,13 +766,14 @@ function accountById(id){ return ledgerAccounts.find(a=>a.id===id); }
 function nextJournalRef(){ return 'JE'+String(journal.length+1).padStart(5,'0'); }
 function paymentAccountFor(method){ return method==='cash' ? '1010' : (method==='card' ? '1020' : '1030'); }
 function splitRevenueByCategory(orderItems){
-  let foodTotal=0, beverageTotal=0;
+  let foodTotal=0, beverageTotal=0, billiardTotal=0;
   orderItems.forEach(li=>{
-    const m=menu.find(x=>x.id===li.itemId);
     const lineTotal=(li.price||0)*(li.qty||0);
+    if(li.isBilliardCharge){ billiardTotal+=lineTotal; return; }
+    const m=menu.find(x=>x.id===li.itemId);
     if(m && m.is_beverage) beverageTotal+=lineTotal; else foodTotal+=lineTotal;
   });
-  return { foodTotal:round2(foodTotal), beverageTotal:round2(beverageTotal) };
+  return { foodTotal:round2(foodTotal), beverageTotal:round2(beverageTotal), billiardTotal:round2(billiardTotal) };
 }
 function computeOrderCOGS(orderItems){
   let total=0;
@@ -761,9 +799,10 @@ function postSaleJournalEntry(record, orderItems){
     addDebit(paymentAccountFor(record.paymentMethod), record.grandTotal);
   }
   if(record.discountAmount>0) lines.push({accountId:'4900', debit:round2(record.discountAmount), credit:0, reconciled:false});
-  const {foodTotal, beverageTotal} = splitRevenueByCategory(orderItems||[]);
+  const {foodTotal, beverageTotal, billiardTotal} = splitRevenueByCategory(orderItems||[]);
   if(foodTotal>0) lines.push({accountId:'4010', debit:0, credit:foodTotal, reconciled:false});
   if(beverageTotal>0) lines.push({accountId:'4020', debit:0, credit:beverageTotal, reconciled:false});
+  if(billiardTotal>0) lines.push({accountId:'4040', debit:0, credit:billiardTotal, reconciled:false});
   if(record.tax>0) lines.push({accountId:'2010', debit:0, credit:round2(record.tax), reconciled:false});
   if(record.serviceCharge>0) lines.push({accountId:'4030', debit:0, credit:round2(record.serviceCharge), reconciled:false});
   if(record.tip>0) lines.push({accountId:'2020', debit:0, credit:round2(record.tip), reconciled:false});
@@ -835,6 +874,7 @@ function persistAll(){
   save('posv2_ledgerAccounts', ledgerAccounts); save('posv2_journal', journal);
   save('posv2_exchangeRates', exchangeRates); save('posv2_taxPeriods', taxPeriods);
   save('posv2_ingredients', ingredients);
+  save('posv2_billiardTables', billiardTables);
   queueSupabaseSync();
 }
 
@@ -1276,6 +1316,7 @@ function enterApp(){
 /* ===================== TOPBAR / NAV ===================== */
 const NAV = [
   {key:'floor', label:'Floor', roles:['manager','cashier','waiter']},
+  {key:'billiard', label:'Billiard', roles:['manager','cashier','waiter']},
   {key:'history', label:'History', roles:['manager','cashier','waiter','accountant']},
   {key:'cash', label:'Cash', roles:['manager','cashier','waiter']},
   {key:'inventory', label:'Inventory', roles:['manager']},
@@ -1310,6 +1351,7 @@ function switchView(view){
   document.getElementById('view-'+(view==='order'?'order':view)).classList.add('active');
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.toggle('active', t.dataset.view===view));
   if(view==='floor') renderFloor();
+  if(view==='billiard') renderBilliard();
   if(view==='history') renderHistory();
   if(view==='cash') renderCash();
   if(view==='inventory'){ if(!requireOrToast('manageInventory')){ switchView('floor'); return; } renderInventory(); }
@@ -1428,6 +1470,161 @@ function openAssignWaiterModal(t){
       const newUser = val?userById(val):null;
       audit('Waiter assigned','table:'+t.num, prevUser?prevUser.name:'—', newUser?newUser.name:'Unassigned');
       persistAll(); renderFloor(); closeGeneric(); showToast('Waiter updated for T'+t.num);
+    }}
+  ]);
+}
+
+/* ===================== BILLIARD / POOL TABLES ===================== */
+function billiardTableById(id){ return billiardTables.find(t=>t.id===id); }
+function billiardHasOpenShift(){ return currentUser.role==='waiter' ? !!getOpenWaiterShift(currentUser.id) : !!getOpenCashierShift(currentUser.id); }
+function billiardElapsedSeconds(bt){ if(!bt.startedAt) return 0; return Math.max(0, Math.floor((Date.now()-bt.startedAt)/1000)); }
+function billiardLiveAmount(bt){
+  if(bt.mode==='fixed') return round2(bt.fixedAmount||0);
+  if(bt.mode==='hourly'){ const hrs=billiardElapsedSeconds(bt)/3600; return round2(hrs*(bt.rate||0)); }
+  return 0;
+}
+function formatHMS(totalSeconds){
+  const h=Math.floor(totalSeconds/3600), m=Math.floor((totalSeconds%3600)/60), s=totalSeconds%60;
+  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+let billiardTickTimer=null;
+function renderBilliard(){
+  document.getElementById('btnAddBilliardTable').onclick=()=>openAddBilliardTableModal();
+  renderBilliardGrid();
+  clearInterval(billiardTickTimer);
+  billiardTickTimer=setInterval(()=>{ if(currentView==='billiard') renderBilliardGrid(); }, 1000);
+}
+function bcardHtml(bt){
+  const w = bt.startedBy ? userById(bt.startedBy) : null;
+  let body='';
+  if(bt.status==='occupied'){
+    const secs=billiardElapsedSeconds(bt);
+    const amt=billiardLiveAmount(bt);
+    body = `
+      <div class="bmode-label">${bt.mode==='hourly'?'Per-Hour · '+fmt(bt.rate)+'/hr':'Fixed Rate / Game'}</div>
+      ${bt.mode==='hourly'?`<div class="btimer">${formatHMS(secs)}</div><div class="bbalance">${fmt(amt)}</div>`:`<div class="bbalance" style="margin-top:14px;">${fmt(amt)}</div>`}
+      <div class="bmode-label" style="margin-top:6px;">Started by ${w?escapeHtml(w.name):'—'}</div>
+    `;
+  } else if(bt.status==='reserved'){
+    body = `<div class="bmode-label" style="margin-top:10px;">Reserved — not yet timed</div>`;
+  } else {
+    body = `<div class="bmode-label" style="margin-top:10px;">Ready for a new session</div>`;
+  }
+  const canRemove = bt.status==='available' && can('manageInventory');
+  return `<div class="bcard st-${bt.status}" data-bid="${bt.id}">
+      <div class="sbar"></div>
+      ${canRemove?`<button class="bdel" data-del-btable="${bt.id}" title="Remove table">&times;</button>`:''}
+      <div><div class="tnum-row"><div class="bname">${escapeHtml(bt.name)}</div><span class="bstatus-pill st-${bt.status}">${bt.status}</span></div>${body}</div>
+      <div class="bfoot">
+        ${bt.status==='available'?`<button class="btn btn-outline-dark" data-b-start="${bt.id}">Start Game</button><button class="btn btn-outline-dark" data-b-reserve="${bt.id}">Reserve</button>`:''}
+        ${bt.status==='reserved'?`<button class="btn btn-outline-dark" data-b-start="${bt.id}">Start Game</button><button class="btn btn-outline-dark" data-b-unreserve="${bt.id}">Cancel Reservation</button>`:''}
+        ${bt.status==='occupied'?`<button class="btn btn-amber" data-b-stop="${bt.id}">Stop &amp; Bill Table</button>`:''}
+      </div>
+    </div>`;
+}
+function renderBilliardGrid(){
+  const wrap=document.getElementById('billiardGridWrap'); if(!wrap) return;
+  wrap.innerHTML = billiardTables.length===0 ? '<div class="empty-note">No billiard tables yet — add one to get started.</div>' : billiardTables.map(bcardHtml).join('');
+  wrap.querySelectorAll('[data-b-start]').forEach(b=>b.addEventListener('click', ()=>openStartBilliardModal(billiardTableById(b.dataset.bStart))));
+  wrap.querySelectorAll('[data-b-reserve]').forEach(b=>b.addEventListener('click', ()=>{
+    const bt=billiardTableById(b.dataset.bReserve); bt.status='reserved';
+    audit('Billiard table reserved', bt.name, '', 'reserved');
+    persistAll(); renderBilliardGrid();
+  }));
+  wrap.querySelectorAll('[data-b-unreserve]').forEach(b=>b.addEventListener('click', ()=>{
+    const bt=billiardTableById(b.dataset.bUnreserve); bt.status='available';
+    audit('Billiard reservation cancelled', bt.name, 'reserved', 'available');
+    persistAll(); renderBilliardGrid();
+  }));
+  wrap.querySelectorAll('[data-b-stop]').forEach(b=>b.addEventListener('click', ()=>openStopBilliardModal(billiardTableById(b.dataset.bStop))));
+  wrap.querySelectorAll('[data-del-btable]').forEach(b=>b.addEventListener('click', ()=>{
+    const bt=billiardTableById(b.dataset.delBtable);
+    if(bt.status!=='available'){ showToast('Only an available table can be removed.'); return; }
+    if(!confirm('Remove '+bt.name+'?')) return;
+    billiardTables=billiardTables.filter(x=>x.id!==bt.id);
+    audit('Billiard table removed', bt.name, '', '');
+    persistAll(); renderBilliardGrid();
+  }));
+}
+function openAddBilliardTableModal(){
+  const body=`<div class="form-field full"><label>Table Name</label><input id="newBtName" placeholder="e.g. Table 3" value="Table ${billiardTables.length+1}"></div>`;
+  openGeneric('Add Billiard Table', body, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Add', variant:'btn-amber', handler:()=>{
+      const name=document.getElementById('newBtName').value.trim();
+      if(!name){ showToast('Enter a table name.'); return; }
+      billiardTables.push({id:uid('bt'), name, status:'available', mode:null, rate:null, fixedAmount:null, startedAt:null, startedBy:null});
+      audit('Billiard table added', name, '', 'created');
+      persistAll(); closeGeneric(); renderBilliardGrid();
+    }}
+  ]);
+}
+function openStartBilliardModal(bt){
+  if(!billiardHasOpenShift()){ showToast('Payment restricted. You must open a shift before processing payments.'); return; }
+  const body=`
+    <div class="form-field full"><label>Billing Mode</label>
+      <div class="toggle-pair" id="bModeToggle" style="width:100%;">
+        <button data-bmode="hourly" class="on" style="flex:1;">Per-Hour</button>
+        <button data-bmode="fixed" style="flex:1;">Fixed Rate / Game</button>
+      </div>
+    </div>
+    <div class="form-field full" id="bRateField" style="margin-top:8px;"><label>Rate per Hour</label><input id="bRateInput" type="number" min="0" step="1000" value="${settings.billiardHourlyRate}"></div>
+    <div class="form-field full" id="bFixedField" style="margin-top:8px; display:none;"><label>Flat Fee per Game</label><input id="bFixedInput" type="number" min="0" step="1000" value="${settings.billiardFixedRate}"></div>
+  `;
+  let mode='hourly';
+  openGeneric('Start Session — '+bt.name, body, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Start Game', variant:'btn-amber', handler:()=>{
+      if(!billiardHasOpenShift()){ showToast('Payment restricted. You must open a shift before processing payments.'); closeGeneric(); return; }
+      bt.status='occupied'; bt.mode=mode; bt.startedAt=Date.now(); bt.startedBy=currentUser.id;
+      if(mode==='hourly'){ bt.rate=Number(document.getElementById('bRateInput').value)||0; bt.fixedAmount=null; }
+      else { bt.fixedAmount=Number(document.getElementById('bFixedInput').value)||0; bt.rate=null; }
+      audit('Billiard session started', bt.name, '', mode+' — by '+currentUser.name);
+      persistAll(); closeGeneric(); renderBilliardGrid();
+      showToast(bt.name+' — session started.');
+    }}
+  ]);
+  document.querySelectorAll('#bModeToggle [data-bmode]').forEach(b=>b.addEventListener('click', ()=>{
+    mode=b.dataset.bmode;
+    document.querySelectorAll('#bModeToggle [data-bmode]').forEach(x=>x.classList.toggle('on', x.dataset.bmode===mode));
+    document.getElementById('bRateField').style.display = mode==='hourly'?'block':'none';
+    document.getElementById('bFixedField').style.display = mode==='fixed'?'block':'none';
+  }));
+}
+function openStopBilliardModal(bt){
+  if(!billiardHasOpenShift()){ showToast('Payment restricted. You must open a shift before processing payments.'); return; }
+  const finalAmount = billiardLiveAmount(bt);
+  const secs = billiardElapsedSeconds(bt);
+  const openOrders = activeOrders.slice().sort((a,b)=>b.createdAt-a.createdAt);
+  const body=`
+    <p class="hint">${bt.name} — ${bt.mode==='hourly'?formatHMS(secs)+' played at '+fmt(bt.rate)+'/hr':'Fixed rate game'}</p>
+    <div class="due-box" style="margin:10px 0;"><div class="lbl">Amount Due</div><div class="amt">${fmt(finalAmount)}</div></div>
+    <div class="form-field full"><label>Add this charge to which tab?</label>
+      <select id="bMergeTarget">
+        <option value="">— No existing tab: pick a table to open a new one —</option>
+        ${openOrders.map(o=>{ const t2=tableById(o.tableId); return `<option value="${o.id}">${t2?'T'+t2.num:'?'} — ${ORDER_TYPES[o.orderType||'dine_in']} — ${o.items.length} item(s)</option>`; }).join('')}
+      </select>
+    </div>
+    <div class="form-field full" id="bNewTableField" style="margin-top:8px;"><label>Or open a new ticket on table</label>
+      <select id="bNewTableSelect"><option value="">Select a table…</option>${tables.slice().sort((a,b)=>a.num-b.num).map(t2=>`<option value="${t2.id}">T${t2.num}</option>`).join('')}</select>
+    </div>
+  `;
+  openGeneric('Stop & Bill Table', body, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Bill It', variant:'btn-amber', handler:()=>{
+      if(!billiardHasOpenShift()){ showToast('Payment restricted. You must open a shift before processing payments.'); closeGeneric(); return; }
+      const mergeOrderId=document.getElementById('bMergeTarget').value;
+      const newTableId=document.getElementById('bNewTableSelect').value;
+      let targetOrder=null;
+      if(mergeOrderId){ targetOrder=activeOrders.find(o=>o.id===mergeOrderId); }
+      else if(newTableId){ targetOrder=createOrder(newTableId); }
+      else { showToast('Pick an existing tab or a table to open a new ticket.'); return; }
+      const desc = bt.name+' — '+(bt.mode==='hourly'?formatHMS(secs)+' @ '+fmt(bt.rate)+'/hr':'Fixed rate game');
+      targetOrder.items.push({ id:uid('li'), itemId:null, name:desc, price:finalAmount, qty:1, note:'', sentToKitchen:false, requiresKitchenPrep:false, isBilliardCharge:true });
+      audit('Billiard charge billed', bt.name, fmt(finalAmount), 'added to order:'+targetOrder.id);
+      bt.status='available'; bt.mode=null; bt.rate=null; bt.fixedAmount=null; bt.startedAt=null; bt.startedBy=null;
+      persistAll(); closeGeneric(); renderBilliardGrid(); renderFloor();
+      showToast(bt.name+' billed '+fmt(finalAmount)+' — added to the tab.');
     }}
   ]);
 }
@@ -2929,6 +3126,11 @@ function renderAcctOverviewStats(){
   const totalCollected=rows.reduce((s,r)=>s+r.grandTotal,0);
   const byMethod={cash:0,card:0,upi:0,orange_money:0,split:0};
   rows.forEach(r=>{ byMethod[r.paymentMethod]=(byMethod[r.paymentMethod]||0)+r.grandTotal; });
+  const revByCategory = rows.reduce((acc,r)=>{
+    const split = splitRevenueByCategory(r.items||[]);
+    acc.foodTotal+=split.foodTotal; acc.beverageTotal+=split.beverageTotal; acc.billiardTotal+=split.billiardTotal;
+    return acc;
+  }, {foodTotal:0, beverageTotal:0, billiardTotal:0});
   el.innerHTML = cashRegisterHtml + `
     <div class="section-title" style="margin-top:0;">Sales Summary</div>
     <div class="stat-grid">
@@ -2940,6 +3142,12 @@ function renderAcctOverviewStats(){
       <div class="stat-box"><div class="l">Tips</div><div class="v">${fmt(tips)}</div></div>
       <div class="stat-box amber"><div class="l">Total Collected</div><div class="v">${fmt(totalCollected)}</div></div>
       <div class="stat-box"><div class="l">Transactions</div><div class="v">${rows.length}</div></div>
+    </div>
+    <div class="section-title">Revenue by Category</div>
+    <div class="stat-grid" style="margin-bottom:14px;">
+      <div class="stat-box"><div class="l">Food Sales</div><div class="v">${fmt(revByCategory.foodTotal)}</div></div>
+      <div class="stat-box"><div class="l">Beverage Sales</div><div class="v">${fmt(revByCategory.beverageTotal)}</div></div>
+      <div class="stat-box amber"><div class="l">Billiard / Games Revenue</div><div class="v">${fmt(revByCategory.billiardTotal)}</div></div>
     </div>
     <div class="section-title">Collected by Payment Method</div>
     ${Object.entries(byMethod).map(([k,v])=>`<div class="pm-bar-row"><div class="pm-bar-label">${PAYMENT_METHOD_LABELS[k]||k}</div><div class="pm-bar-track"><div class="pm-bar-fill" style="width:${(v/Math.max(1,totalCollected)*100)}%;"></div></div><div class="pm-bar-val">${fmt(v)}</div></div>`).join('')}
