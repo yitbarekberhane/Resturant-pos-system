@@ -2406,7 +2406,7 @@ function renderHistoryTable(){
     const cash = cashByRole(validRows);
     summaryHtml += `<div class="stat-grid" style="margin-top:8px; margin-bottom:6px;">
       <div class="stat-box amber"><div class="l">Cash With Waiters</div><div class="v">${fmt(cash.waiters)}</div></div>
-      <div class="stat-box amber"><div class="l">System Cash (Register)</div><div class="v">${fmt(cash.system)}</div></div>
+      <div class="stat-box amber"><div class="l">Manager & Cashier</div><div class="v">${fmt(cash.system)}</div></div>
       <div class="stat-box amber"><div class="l">Total Cash In System</div><div class="v">${fmt(cash.total)}</div></div>
     </div>
     <p class="hint" style="margin-bottom:2px;">Cash figures are the sum of cash received on the orders shown below (including the cash portion of split payments). Waiters keep individual attribution since they carry cash while serving tables; cash processed by a cashier or manager pools together as System Cash, since both work the same register. These react to the filters, same as the revenue figures above.</p>`;
