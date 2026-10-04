@@ -529,20 +529,20 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
         <button class="zone-tab" data-zone="outdoor">Outdoor</button>
       </div>
       <div id="tableGridWrap"></div>
-    </div></div>
-
-    <div class="view" id="view-billiard"><div class="pad">
-      <div class="head-row"><h2>Billiard / Pool Tables</h2>
-        <div style="display:flex; align-items:center; gap:16px;">
-          <div class="legend">
-            <span><i class="dot" style="background:var(--sage)"></i>Available</span>
-            <span><i class="dot" style="background:var(--rust)"></i>Occupied</span>
-            <span><i class="dot" style="background:var(--yellow)"></i>Reserved</span>
+      <div id="billiardFloorSection" style="display:none;">
+        <div class="zone-section-title" style="display:flex; align-items:center; justify-content:space-between;">
+          <span>Billiard / Pool Tables</span>
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div class="legend">
+              <span><i class="dot" style="background:var(--sage)"></i>Available</span>
+              <span><i class="dot" style="background:var(--rust)"></i>Occupied</span>
+              <span><i class="dot" style="background:var(--yellow)"></i>Reserved</span>
+            </div>
+            <button class="btn btn-outline-dark" id="btnAddBilliardTable" style="width:auto; padding:6px 12px;">+ Add Table</button>
           </div>
-          <button class="btn btn-outline-dark" id="btnAddBilliardTable" style="width:auto; padding:7px 14px;">+ Add Table</button>
         </div>
+        <div class="table-grid" id="billiardGridWrap"></div>
       </div>
-      <div class="table-grid" id="billiardGridWrap"></div>
     </div></div>
 
     <div class="view" id="view-order">
@@ -650,7 +650,7 @@ const DEFAULT_SETTINGS = {
   restaurantName:"Asmara & Addis", address:"14 Marina Road, Conakry", taxId:"TX-2291-04",
   taxRate:8, serviceChargeRate:10, currency:"$", tableCount:12,
   tipEnabled:true, serviceChargeEnabled:true, waiterCanDiscount:true, receiptCounter:1, logoImage:null,
-  themeColor:"amber", billiardHourlyRate:50000, billiardFixedRate:25000
+  themeColor:"amber", billiardHourlyRate:50000, billiardFixedRate:25000, showBilliardOnFloor:true
 };
 const THEMES = {
   amber:   {label:"Amber",    accent:"#D9A441", bright:"#F0C267"},
@@ -706,12 +706,19 @@ const DEFAULT_INGREDIENTS = [
 ];
 let ingredients = load('posv2_ingredients', DEFAULT_INGREDIENTS);
 const DEFAULT_BILLIARD_TABLES = [
-  {id:'bt1', name:'Table 1', status:'available', mode:null, rate:null, fixedAmount:null, startedAt:null, startedBy:null},
-  {id:'bt2', name:'Table 2', status:'available', mode:null, rate:null, fixedAmount:null, startedAt:null, startedBy:null}
+  {id:'bt1', name:'Table 1', status:'available', mode:null, rate:null, fixedAmount:null, roundBlock:null, startedAt:null, startedBy:null, mergedCharges:[]},
+  {id:'bt2', name:'Table 2', status:'available', mode:null, rate:null, fixedAmount:null, roundBlock:null, startedAt:null, startedBy:null, mergedCharges:[]}
 ];
 let billiardTables = load('posv2_billiardTables', null);
 if(!billiardTables){ billiardTables = DEFAULT_BILLIARD_TABLES.map(t=>({...t})); save('posv2_billiardTables', billiardTables); }
 function zoneForIndex(i, count){ return i < Math.ceil(count*0.7) ? 'indoor' : 'outdoor'; }
+const WALK_IN_TABLE_ID = 'walk_in';
+function tableLabel(t){ return (t && t.isWalkIn) ? 'Walk-in / Bar' : (t ? 'T'+t.num : '?'); }
+function ensureWalkInTable(){
+  if(!tables.find(t=>t.id===WALK_IN_TABLE_ID)){
+    tables.push({ id:WALK_IN_TABLE_ID, num:0, capacity:0, zone:'indoor', waiterId:null, isWalkIn:true });
+  }
+}
 let tables = load('posv2_tables', null);
 if(!tables){
   tables = [];
@@ -721,6 +728,7 @@ if(!tables){
   }
   save('posv2_tables', tables);
 }
+ensureWalkInTable();
 let activeOrders = load('posv2_activeOrders', []);
 let history = load('posv2_history', []);
 let waiterShifts = load('posv2_waiterShifts', []);
@@ -1036,6 +1044,7 @@ async function loadBusinessData(){
       tables.push({id:uid('t'), num, capacity:TABLE_PATTERN[i%TABLE_PATTERN.length], waiterId, zone:zoneForIndex(i,settings.tableCount)});
     }
   }
+  ensureWalkInTable();
 
   activeOrders=[]; history=[];
   (ordersRes.data||[]).forEach(r=>{ if(r.status==='open') activeOrders.push(r.meta||r); else history.push(r.meta||r); });
@@ -1316,7 +1325,6 @@ function enterApp(){
 /* ===================== TOPBAR / NAV ===================== */
 const NAV = [
   {key:'floor', label:'Floor', roles:['manager','cashier','waiter']},
-  {key:'billiard', label:'Billiard', roles:['manager','cashier','waiter']},
   {key:'history', label:'History', roles:['manager','cashier','waiter','accountant']},
   {key:'cash', label:'Cash', roles:['manager','cashier','waiter']},
   {key:'inventory', label:'Inventory', roles:['manager']},
@@ -1351,8 +1359,8 @@ function switchView(view){
   document.getElementById('view-'+(view==='order'?'order':view)).classList.add('active');
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.toggle('active', t.dataset.view===view));
   if(view==='floor') renderFloor();
-  if(view==='billiard') renderBilliard();
   if(view==='history') renderHistory();
+  if(view==='dashboard') renderDashboard();
   if(view==='cash') renderCash();
   if(view==='inventory'){ if(!requireOrToast('manageInventory')){ switchView('floor'); return; } renderInventory(); }
   if(view==='finance'){ if(!requireOrToast('viewFinance')){ switchView('floor'); return; } renderFinance(); }
@@ -1376,9 +1384,9 @@ function tcardHtml(t){
   const zone=t.zone==='outdoor'?'outdoor':'indoor';
   return `<div class="tcard st-${status}" data-tid="${t.id}">
       <div class="sbar"></div>
-      <div><div class="tnum-row"><div class="tnum">T${t.num}</div><div class="zone-badge z-${zone}">${zone}</div></div><div class="tcap">Seats ${t.capacity}</div></div>
+      <div><div class="tnum-row"><div class="tnum">${t.isWalkIn?'🥤 Bar':'T'+t.num}</div>${t.isWalkIn?'':`<div class="zone-badge z-${zone}">${zone}</div>`}</div><div class="tcap">${t.isWalkIn?'Walk-in / Bar tickets':'Seats '+t.capacity}</div></div>
       <div class="tfoot">
-        <div><div class="tstatus">${status}</div><div class="twaiter">${w?escapeHtml(w.name):'Unassigned'}</div></div>
+        <div><div class="tstatus">${status}</div><div class="twaiter">${t.isWalkIn?'&nbsp;':(w?escapeHtml(w.name):'Unassigned')}</div></div>
         <div class="ttotal">${total>0?fmt(total):''}</div>
       </div>
     </div>`;
@@ -1403,6 +1411,18 @@ function renderFloor(){
     card.addEventListener('click', ()=>openTable(card.dataset.tid));
     card.addEventListener('contextmenu', (e)=>{ e.preventDefault(); showTableContextMenu(e, tableById(card.dataset.tid)); });
   });
+  const bSection=document.getElementById('billiardFloorSection');
+  if(settings.showBilliardOnFloor){
+    bSection.style.display='block';
+    const addBtn=document.getElementById('btnAddBilliardTable');
+    if(addBtn) addBtn.onclick=()=>openAddBilliardTableModal();
+    renderBilliardGrid();
+    clearInterval(billiardTickTimer);
+    billiardTickTimer=setInterval(()=>{ if(currentView==='floor') renderBilliardGrid(); else clearInterval(billiardTickTimer); }, 1000);
+  } else {
+    bSection.style.display='none';
+    clearInterval(billiardTickTimer);
+  }
 }
 document.getElementById('zoneTabs').addEventListener('click', (e)=>{
   const btn=e.target.closest('.zone-tab');
@@ -1478,31 +1498,38 @@ function openAssignWaiterModal(t){
 function billiardTableById(id){ return billiardTables.find(t=>t.id===id); }
 function billiardHasOpenShift(){ return currentUser.role==='waiter' ? !!getOpenWaiterShift(currentUser.id) : !!getOpenCashierShift(currentUser.id); }
 function billiardElapsedSeconds(bt){ if(!bt.startedAt) return 0; return Math.max(0, Math.floor((Date.now()-bt.startedAt)/1000)); }
+function billiardRoundedMinutes(bt){
+  const mins = billiardElapsedSeconds(bt)/60;
+  const block = bt.roundBlock || 15;
+  return Math.ceil(mins/block)*block;
+}
 function billiardLiveAmount(bt){
   if(bt.mode==='fixed') return round2(bt.fixedAmount||0);
   if(bt.mode==='hourly'){ const hrs=billiardElapsedSeconds(bt)/3600; return round2(hrs*(bt.rate||0)); }
+  if(bt.mode==='rounded'){ const hrs=billiardRoundedMinutes(bt)/60; return round2(hrs*(bt.rate||0)); }
   return 0;
+}
+function billiardTotalDue(bt){
+  const mergedTotal = (bt.mergedCharges||[]).reduce((s,m)=>s+(Number(m.amount)||0),0);
+  return round2(billiardLiveAmount(bt)+mergedTotal);
 }
 function formatHMS(totalSeconds){
   const h=Math.floor(totalSeconds/3600), m=Math.floor((totalSeconds%3600)/60), s=totalSeconds%60;
   return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
 }
 let billiardTickTimer=null;
-function renderBilliard(){
-  document.getElementById('btnAddBilliardTable').onclick=()=>openAddBilliardTableModal();
-  renderBilliardGrid();
-  clearInterval(billiardTickTimer);
-  billiardTickTimer=setInterval(()=>{ if(currentView==='billiard') renderBilliardGrid(); }, 1000);
-}
 function bcardHtml(bt){
   const w = bt.startedBy ? userById(bt.startedBy) : null;
   let body='';
   if(bt.status==='occupied'){
     const secs=billiardElapsedSeconds(bt);
     const amt=billiardLiveAmount(bt);
+    const merged=bt.mergedCharges||[];
+    const total=billiardTotalDue(bt);
     body = `
-      <div class="bmode-label">${bt.mode==='hourly'?'Per-Hour · '+fmt(bt.rate)+'/hr':'Fixed Rate / Game'}</div>
-      ${bt.mode==='hourly'?`<div class="btimer">${formatHMS(secs)}</div><div class="bbalance">${fmt(amt)}</div>`:`<div class="bbalance" style="margin-top:14px;">${fmt(amt)}</div>`}
+      <div class="bmode-label">${bt.mode==='hourly'?'Per-Hour · '+fmt(bt.rate)+'/hr':bt.mode==='rounded'?'Rounded (15-min) · '+fmt(bt.rate)+'/hr':'Fixed Rate / Game'}</div>
+      ${bt.mode==='hourly'?`<div class="btimer">${formatHMS(secs)}</div><div class="bbalance">${fmt(amt)}</div>`:bt.mode==='rounded'?`<div class="btimer">${formatHMS(secs)}</div><div class="bmode-label" style="margin-top:-4px;">billed as ${billiardRoundedMinutes(bt)} min</div><div class="bbalance">${fmt(amt)}</div>`:`<div class="bbalance" style="margin-top:14px;">${fmt(amt)}</div>`}
+      ${merged.length?`<div class="bmode-label" style="margin-top:4px; color:var(--amber);">+ ${merged.length} merged (${fmt(total-amt)}) — total ${fmt(total)}</div>`:''}
       <div class="bmode-label" style="margin-top:6px;">Started by ${w?escapeHtml(w.name):'—'}</div>
     `;
   } else if(bt.status==='reserved'){
@@ -1565,10 +1592,15 @@ function openStartBilliardModal(bt){
     <div class="form-field full"><label>Billing Mode</label>
       <div class="toggle-pair" id="bModeToggle" style="width:100%;">
         <button data-bmode="hourly" class="on" style="flex:1;">Per-Hour</button>
+        <button data-bmode="rounded" style="flex:1;">Rounded (15-min)</button>
         <button data-bmode="fixed" style="flex:1;">Fixed Rate / Game</button>
       </div>
     </div>
     <div class="form-field full" id="bRateField" style="margin-top:8px;"><label>Rate per Hour</label><input id="bRateInput" type="number" min="0" step="1000" value="${settings.billiardHourlyRate}"></div>
+    <div class="form-field full" id="bRoundedField" style="margin-top:8px; display:none;">
+      <label>Rate per Hour</label><input id="bRoundedRateInput" type="number" min="0" step="1000" value="${settings.billiardHourlyRate}">
+      <p class="hint" style="margin-top:6px;">The clock keeps running continuously and never stops or caps — billing just rounds up to the next 15-minute mark as time passes: 15, 30, 45, 60, 1hr15, 1hr30, and so on for as long as the game runs.</p>
+    </div>
     <div class="form-field full" id="bFixedField" style="margin-top:8px; display:none;"><label>Flat Fee per Game</label><input id="bFixedInput" type="number" min="0" step="1000" value="${settings.billiardFixedRate}"></div>
   `;
   let mode='hourly';
@@ -1577,8 +1609,9 @@ function openStartBilliardModal(bt){
     {label:'Start Game', variant:'btn-amber', handler:()=>{
       if(!billiardHasOpenShift()){ showToast('Payment restricted. You must open a shift before processing payments.'); closeGeneric(); return; }
       bt.status='occupied'; bt.mode=mode; bt.startedAt=Date.now(); bt.startedBy=currentUser.id;
-      if(mode==='hourly'){ bt.rate=Number(document.getElementById('bRateInput').value)||0; bt.fixedAmount=null; }
-      else { bt.fixedAmount=Number(document.getElementById('bFixedInput').value)||0; bt.rate=null; }
+      if(mode==='hourly'){ bt.rate=Number(document.getElementById('bRateInput').value)||0; bt.fixedAmount=null; bt.roundBlock=null; }
+      else if(mode==='rounded'){ bt.rate=Number(document.getElementById('bRoundedRateInput').value)||0; bt.fixedAmount=null; bt.roundBlock=15; }
+      else { bt.fixedAmount=Number(document.getElementById('bFixedInput').value)||0; bt.rate=null; bt.roundBlock=null; }
       audit('Billiard session started', bt.name, '', mode+' — by '+currentUser.name);
       persistAll(); closeGeneric(); renderBilliardGrid();
       showToast(bt.name+' — session started.');
@@ -1588,25 +1621,28 @@ function openStartBilliardModal(bt){
     mode=b.dataset.bmode;
     document.querySelectorAll('#bModeToggle [data-bmode]').forEach(x=>x.classList.toggle('on', x.dataset.bmode===mode));
     document.getElementById('bRateField').style.display = mode==='hourly'?'block':'none';
+    document.getElementById('bRoundedField').style.display = mode==='rounded'?'block':'none';
     document.getElementById('bFixedField').style.display = mode==='fixed'?'block':'none';
   }));
 }
 function openStopBilliardModal(bt){
   if(!billiardHasOpenShift()){ showToast('Payment restricted. You must open a shift before processing payments.'); return; }
-  const finalAmount = billiardLiveAmount(bt);
+  const finalAmount = billiardTotalDue(bt);
   const secs = billiardElapsedSeconds(bt);
   const openOrders = activeOrders.slice().sort((a,b)=>b.createdAt-a.createdAt);
+  const merged = bt.mergedCharges||[];
   const body=`
-    <p class="hint">${bt.name} — ${bt.mode==='hourly'?formatHMS(secs)+' played at '+fmt(bt.rate)+'/hr':'Fixed rate game'}</p>
+    <p class="hint">${bt.name} — ${bt.mode==='hourly'?formatHMS(secs)+' played at '+fmt(bt.rate)+'/hr':bt.mode==='rounded'?formatHMS(secs)+' played, billed as '+billiardRoundedMinutes(bt)+' min (rounded up to the nearest 15) at '+fmt(bt.rate)+'/hr':'Fixed rate game'}</p>
+    ${merged.length?`<p class="hint">+ ${merged.length} merged charge${merged.length!==1?'s':''} from joined table${merged.length!==1?'s':''}: ${merged.map(m=>escapeHtml(m.sourceName)+' ('+fmt(m.amount)+')').join(', ')}</p>`:''}
     <div class="due-box" style="margin:10px 0;"><div class="lbl">Amount Due</div><div class="amt">${fmt(finalAmount)}</div></div>
     <div class="form-field full"><label>Add this charge to which tab?</label>
       <select id="bMergeTarget">
         <option value="">— No existing tab: pick a table to open a new one —</option>
-        ${openOrders.map(o=>{ const t2=tableById(o.tableId); return `<option value="${o.id}">${t2?'T'+t2.num:'?'} — ${ORDER_TYPES[o.orderType||'dine_in']} — ${o.items.length} item(s)</option>`; }).join('')}
+        ${openOrders.map(o=>{ const t2=tableById(o.tableId); return `<option value="${o.id}">${tableLabel(t2)} — ${ORDER_TYPES[o.orderType||'dine_in']} — ${o.items.length} item(s)</option>`; }).join('')}
       </select>
     </div>
     <div class="form-field full" id="bNewTableField" style="margin-top:8px;"><label>Or open a new ticket on table</label>
-      <select id="bNewTableSelect"><option value="">Select a table…</option>${tables.slice().sort((a,b)=>a.num-b.num).map(t2=>`<option value="${t2.id}">T${t2.num}</option>`).join('')}</select>
+      <select id="bNewTableSelect"><option value="">Select a table…</option>${tables.slice().sort((a,b)=>a.num-b.num).map(t2=>`<option value="${t2.id}">${tableLabel(t2)}</option>`).join('')}</select>
     </div>
   `;
   openGeneric('Stop & Bill Table', body, [
@@ -1619,16 +1655,16 @@ function openStopBilliardModal(bt){
       if(mergeOrderId){ targetOrder=activeOrders.find(o=>o.id===mergeOrderId); }
       else if(newTableId){ targetOrder=createOrder(newTableId); }
       else { showToast('Pick an existing tab or a table to open a new ticket.'); return; }
-      const desc = bt.name+' — '+(bt.mode==='hourly'?formatHMS(secs)+' @ '+fmt(bt.rate)+'/hr':'Fixed rate game');
-      targetOrder.items.push({ id:uid('li'), itemId:null, name:desc, price:finalAmount, qty:1, note:'', sentToKitchen:false, requiresKitchenPrep:false, isBilliardCharge:true });
+      const desc = bt.name+' — '+(bt.mode==='hourly'?formatHMS(secs)+' @ '+fmt(bt.rate)+'/hr':bt.mode==='rounded'?billiardRoundedMinutes(bt)+' min (rounded, '+bt.roundBlock+'-min blocks) @ '+fmt(bt.rate)+'/hr':'Fixed rate game');
+      targetOrder.items.push({ id:uid('li'), itemId:null, name:desc, price:billiardLiveAmount(bt), qty:1, note:'', sentToKitchen:false, requiresKitchenPrep:false, isBilliardCharge:true });
+      merged.forEach(m=>{
+        targetOrder.items.push({ id:uid('li'), itemId:null, name:m.sourceName+' (joined)', price:m.amount, qty:1, note:'', sentToKitchen:false, requiresKitchenPrep:false, isBilliardCharge:true });
+      });
       audit('Billiard charge billed', bt.name, fmt(finalAmount), 'added to order:'+targetOrder.id);
-      bt.status='available'; bt.mode=null; bt.rate=null; bt.fixedAmount=null; bt.startedAt=null; bt.startedBy=null;
-      persistAll(); closeGeneric(); renderBilliardGrid(); renderFloor();
-      showToast(bt.name+' billed '+fmt(finalAmount)+' — added to the tab.');
+      bt.status='available'; bt.mode=null; bt.rate=null; bt.fixedAmount=null; bt.roundBlock=null; bt.startedAt=null; bt.startedBy=null; bt.mergedCharges=[];
     }}
   ]);
 }
-
 /* ===================== ORDER VIEW ===================== */
 function openTable(tableId){
   const t=tableById(tableId);
@@ -2406,7 +2442,7 @@ function renderHistoryTable(){
     const cash = cashByRole(validRows);
     summaryHtml += `<div class="stat-grid" style="margin-top:8px; margin-bottom:6px;">
       <div class="stat-box amber"><div class="l">Cash With Waiters</div><div class="v">${fmt(cash.waiters)}</div></div>
-      <div class="stat-box amber"><div class="l">Manager & Cashier</div><div class="v">${fmt(cash.system)}</div></div>
+      <div class="stat-box amber"><div class="l">System Cash (Register)</div><div class="v">${fmt(cash.system)}</div></div>
       <div class="stat-box amber"><div class="l">Total Cash In System</div><div class="v">${fmt(cash.total)}</div></div>
     </div>
     <p class="hint" style="margin-bottom:2px;">Cash figures are the sum of cash received on the orders shown below (including the cash portion of split payments). Waiters keep individual attribution since they carry cash while serving tables; cash processed by a cashier or manager pools together as System Cash, since both work the same register. These react to the filters, same as the revenue figures above.</p>`;
@@ -3561,6 +3597,15 @@ function renderSettings(){
       </div>
       <button class="btn btn-amber" id="btnSaveSettings" style="margin-top:14px; width:220px;">Save Settings</button>
     </div>
+    <div class="shift-card">
+      <div class="section-title" style="margin-top:0;">Billiard / Pool Tables</div>
+      <div class="form-grid">
+        <div class="form-field check full"><input type="checkbox" id="sShowBilliard" ${settings.showBilliardOnFloor?'checked':''}><label for="sShowBilliard">Show billiard tables on the Floor Plan</label></div>
+        <div class="form-field"><label>Default Rate per Hour</label><input id="sBilliardHourly" type="number" min="0" step="1000" value="${settings.billiardHourlyRate}"></div>
+        <div class="form-field"><label>Default Flat Fee per Game</label><input id="sBilliardFixed" type="number" min="0" step="1000" value="${settings.billiardFixedRate}"></div>
+      </div>
+      <button class="btn btn-amber" id="btnSaveBilliardSettings" style="margin-top:14px; width:220px;">Save Billiard Settings</button>
+    </div>
 
     <div class="shift-card">
       <div class="head-row" style="margin-bottom:8px;"><div class="section-title" style="margin:0;">Users</div><button class="btn btn-outline-dark" id="btnAddUser" style="width:auto; padding:8px 14px;">+ Add User</button></div>
@@ -3626,11 +3671,13 @@ function renderSettings(){
     if(newCount!==settings.tableCount){
       const existing=tables;
       const result=[];
+      const walkIn=existing.find(t=>t.isWalkIn);
+      if(walkIn) result.push(walkIn);
       for(let i=0;i<newCount;i++){
-        const num=i+1; const prev=existing.find(t=>t.num===num);
+        const num=i+1; const prev=existing.find(t=>t.num===num && !t.isWalkIn);
         result.push(prev || {id:uid('t'), num, capacity:TABLE_PATTERN[i%TABLE_PATTERN.length], waiterId:null, zone: zoneForIndex(i, newCount)});
       }
-      existing.forEach(t=>{ if(t.num>newCount && getTableOrders(t.id).length>0) result.push(t); });
+      existing.forEach(t=>{ if(!t.isWalkIn && t.num>newCount && getTableOrders(t.id).length>0) result.push(t); });
       const removedTables = existing.filter(t=>!result.some(r=>r.id===t.id));
       tables=result; settings.tableCount=newCount;
       removedTables.forEach(t=>deleteRowFromSupabase('restaurant_tables', t.id));
@@ -3639,6 +3686,14 @@ function renderSettings(){
     audit('Settings updated','settings','','updated');
     persistAll(); applyTheme(); renderTopbar(); renderFloor(); renderLoginLogo(); renderLoginBrand(); renderSettings();
     showToast('Settings saved');
+  };
+  document.getElementById('btnSaveBilliardSettings').onclick=()=>{
+    settings.showBilliardOnFloor=document.getElementById('sShowBilliard').checked;
+    settings.billiardHourlyRate=Number(document.getElementById('sBilliardHourly').value)||0;
+    settings.billiardFixedRate=Number(document.getElementById('sBilliardFixed').value)||0;
+    audit('Billiard settings updated','settings','','updated');
+    persistAll(); renderFloor(); renderSettings();
+    showToast('Billiard settings saved');
   };
   const sLogoFile=document.getElementById('sLogoFile');
   if(sLogoFile) sLogoFile.addEventListener('change', ()=>{
