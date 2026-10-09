@@ -798,25 +798,135 @@ function computeOrderCOGS(orderItems){
   });
   return round2(total);
 }
-function postSaleJournalEntry(record, orderItems){
-  const lines=[];
-  const addDebit=(accId, amt)=>{ if(amt<=0) return; const ex=lines.find(l=>l.accountId===accId && l.debit>0); if(ex) ex.debit=round2(ex.debit+amt); else lines.push({accountId:accId, debit:round2(amt), credit:0, reconciled:false}); };
-  if(record.paymentMethod==='split' && record.paymentDetail && record.paymentDetail.parts && record.paymentDetail.parts.length){
-    record.paymentDetail.parts.forEach(p=>addDebit(paymentAccountFor(p.method), Number(p.amount)||0));
-  } else {
-    addDebit(paymentAccountFor(record.paymentMethod), record.grandTotal);
-  }
-  if(record.discountAmount>0) lines.push({accountId:'4900', debit:round2(record.discountAmount), credit:0, reconciled:false});
-  const {foodTotal, beverageTotal, billiardTotal} = splitRevenueByCategory(orderItems||[]);
-  if(foodTotal>0) lines.push({accountId:'4010', debit:0, credit:foodTotal, reconciled:false});
-  if(beverageTotal>0) lines.push({accountId:'4020', debit:0, credit:beverageTotal, reconciled:false});
-  if(billiardTotal>0) lines.push({accountId:'4040', debit:0, credit:billiardTotal, reconciled:false});
-  if(record.tax>0) lines.push({accountId:'2010', debit:0, credit:round2(record.tax), reconciled:false});
-  if(record.serviceCharge>0) lines.push({accountId:'4030', debit:0, credit:round2(record.serviceCharge), reconciled:false});
-  if(record.tip>0) lines.push({accountId:'2020', debit:0, credit:round2(record.tip), reconciled:false});
-  journal.push({ id:uid('je'), ref:record.receiptNo, date:record.datetime, memo:'Sale — Receipt '+record.receiptNo+' (Table '+record.tableNum+')',
-    source:'sale', sourceRecordId:record.id, currency:settings.currency, fxRate:1, lines, createdBy:(currentUser?currentUser.name:'system'), createdAt:Date.now() });
+async function postSaleJournalEntry(record, orderItems) {
+  const lines = [];
 
+  const addDebit = (accId, amt) => {
+    if (amt <= 0) return;
+    const ex = lines.find(l => l.accountId === accId && l.debit > 0);
+    if (ex) ex.debit = Math.round((Number(ex.debit) + Number(amt)) * 100) / 100;
+    else lines.push({
+      accountId: accId,
+      debit: amt,
+      credit: 0,
+      reconciled: false
+    });
+  };
+
+  const addCredit = (accId, amt) => {
+    if (amt <= 0) return;
+    const ex = lines.find(l => l.accountId === accId && l.credit > 0);
+    if (ex) ex.credit = Math.round((Number(ex.credit) + Number(amt)) * 100) / 100;
+    else lines.push({
+      accountId: accId,
+      debit: 0,
+      credit: amt,
+      reconciled: false
+    });
+  };
+
+  if (record.paymentMethod === 'split' && record.paymentDetail && record.paymentDetail.parts) {
+    record.paymentDetail.parts.forEach(p => addDebit(accountFor(p.method), Number(p.amount)));
+  } else {
+    addDebit(accountFor(record.paymentMethod), record.grandTotal);
+  }
+
+  if (record.discountAmount > 0) lines.push({
+    accountId: 4900,
+    debit: Math.round(Number(record.discountAmount) * 100) / 100,
+    credit: 0,
+    reconciled: false
+  });
+
+  const foodTotal = record.total,
+    beverageTotal = record.bevTotal,
+    billiardTotal = record.billTotal;
+
+  if (foodTotal > 0) lines.push({
+    accountId: 4010,
+    debit: 0,
+    credit: foodTotal,
+    reconciled: false
+  });
+
+  if (beverageTotal > 0) lines.push({
+    accountId: 4020,
+    debit: 0,
+    credit: beverageTotal,
+    reconciled: false
+  });
+
+  if (billiardTotal > 0) lines.push({
+    accountId: 4040,
+    debit: 0,
+    credit: billiardTotal,
+    reconciled: false
+  });
+
+  if (record.tax > 0) lines.push({
+    accountId: 2010,
+    debit: 0,
+    credit: Math.round(Number(record.tax) * 100) / 100,
+    reconciled: false
+  });
+
+  if (record.serviceCharge > 0) lines.push({
+    accountId: 4030,
+    debit: 0,
+    credit: Math.round(Number(record.serviceCharge) * 100) / 100,
+    reconciled: false
+  });
+
+  if (record.tip > 0) lines.push({
+    accountId: 2020,
+    debit: 0,
+    credit: Math.round(Number(record.tip) * 100) / 100,
+    reconciled: false
+  });
+
+  if (lines.length > 0) {
+    const linesToInsert = lines.map(line => ({
+      ...line,
+      recordRef: record.receiptNo,
+      date: record.datetime,
+      source: 'sale',
+      sourceRecordId: record.id,
+      currency: settings.currency,
+      fxRate: 1,
+      lines: JSON.stringify(record.items),
+      createdBy: currentUser ? currentUser.name : 'system',
+      createdAt: new Date().toISOString()
+    }));
+
+    await sb.from('Accounting_ledger').insert(linesToInsert);
+  }
+
+  const cogs = computeOrderCOGS(orderItems);
+  if (cogs > 0) {
+    journal.push({
+      id: uid('je'),
+      ref: record.receiptNo,
+      date: record.datetime,
+      source: 'cogs',
+      sourceRecordId: record.id,
+      currency: settings.currency,
+      fxRate: 1,
+      lines: [{
+        accountId: 5110,
+        debit: cogs,
+        credit: 0,
+        reconciled: false
+      }, {
+        accountId: 1310,
+        debit: 0,
+        credit: cogs,
+        reconciled: false
+      }],
+      createdBy: currentUser ? currentUser.name : 'system',
+      createdAt: new Date().toISOString()
+    });
+  }
+}
   const cogs=computeOrderCOGS(orderItems||[]);
   if(cogs>0){
     journal.push({ id:uid('je'), ref:record.receiptNo, date:record.datetime, memo:'COGS — Receipt '+record.receiptNo+' (ingredient usage)',
