@@ -927,14 +927,7 @@ async function postSaleJournalEntry(record, orderItems) {
     });
   }
 }
-  const cogs=computeOrderCOGS(orderItems||[]);
-  if(cogs>0){
-    journal.push({ id:uid('je'), ref:record.receiptNo, date:record.datetime, memo:'COGS — Receipt '+record.receiptNo+' (ingredient usage)',
-      source:'cogs', sourceRecordId:record.id, currency:settings.currency, fxRate:1,
-      lines:[{accountId:'5110', debit:cogs, credit:0, reconciled:false},{accountId:'1310', debit:0, credit:cogs, reconciled:false}],
-      createdBy:(currentUser?currentUser.name:'system'), createdAt:Date.now() });
-  }
-}
+ 
 function reverseSaleJournalEntry(record){
   const toReverse = journal.filter(j=>(j.source==='sale'||j.source==='cogs') && j.sourceRecordId===record.id);
   toReverse.forEach(original=>{
