@@ -2353,7 +2353,7 @@ document.getElementById('btnConfirmPay').addEventListener('click', async ()=>{
     paymentMethod:payMethod, paymentDetail, datetime:Date.now(), voided:false
   };
   history.push(record);
-  postSaleJournalEntry(record, order.items);
+  await postSaleJournalEntry(record, order.items);
   audit('Payment recorded', record.receiptNo, '', payMethod+' '+fmt(totals.grandTotal));
   deductStockForOrderItems(order.items);
 
