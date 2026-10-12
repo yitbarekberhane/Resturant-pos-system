@@ -798,6 +798,13 @@ function computeOrderCOGS(orderItems){
   });
   return round2(total);
 }
+function accountFor(method) {
+  if (method === 'cash') return '1010';
+  if (method === 'card') return '1020';
+  if (method === 'upi' || method === 'orange_money') return '1030';
+  return '1010';
+}
+
 async function postSaleJournalEntry(record, orderItems) {
   const lines = [];
 
@@ -888,6 +895,7 @@ async function postSaleJournalEntry(record, orderItems) {
   if (lines.length > 0) {
     const linesToInsert = lines.map(line => ({
       ...line,
+      business_id: currentBusinessId,
       recordRef: record.receiptNo,
       date: record.datetime,
       source: 'sale',
@@ -900,7 +908,7 @@ async function postSaleJournalEntry(record, orderItems) {
     }));
 
     const { error: saleError } = await sb.from('Accounting_ledger').insert(linesToInsert);
-    if (saleError) throw saleError;
+    if (saleError) console.error("Supabase Sales Ledger Insert Error:", saleError);
   }
 
   // 2. Compute and Insert COGS Journal Entries into Supabase
@@ -921,6 +929,7 @@ async function postSaleJournalEntry(record, orderItems) {
       }
     ].map(line => ({
       ...line,
+      business_id: currentBusinessId,
       recordRef: record.receiptNo,
       date: record.datetime,
       source: 'cogs',
@@ -933,10 +942,9 @@ async function postSaleJournalEntry(record, orderItems) {
     }));
 
     const { error: cogsError } = await sb.from('Accounting_ledger').insert(cogsLines);
-    if (cogsError) throw cogsError;
+    if (cogsError) console.error("Supabase COGS Ledger Insert Error:", cogsError);
   }
-}
- 
+} 
 function reverseSaleJournalEntry(record){
   const toReverse = journal.filter(j=>(j.source==='sale'||j.source==='cogs') && j.sourceRecordId===record.id);
   toReverse.forEach(original=>{
@@ -3345,18 +3353,48 @@ function renderJournalTable(){
   const from=document.getElementById('jFrom').value, to=document.getElementById('jTo').value;
   const rows=journalInRange(from,to);
   if(rows.length===0){ wrap.innerHTML='<div class="empty-note">No journal entries in this range.</div>'; return; }
-  let html='<table class="data-table"><thead><tr><th>Date</th><th>Ref</th><th>Source</th><th>Memo</th><th>Account</th><th>Debit</th><th>Credit</th><th>Balanced</th></tr></thead><tbody>';
+  
+  let html='<table class="data-table"><thead><tr><th>Date</th><th>Ref</th><th>Source</th><th>Memo</th><th>Account</th><th>Debit</th><th>Credit</th><th>Balanced</th><th>Actions</th></tr></thead><tbody>';
+  
   rows.forEach(j=>{
     const totalDebit=round2(j.lines.reduce((s,l)=>s+l.debit,0));
     const totalCredit=round2(j.lines.reduce((s,l)=>s+l.credit,0));
     const balanced=Math.abs(totalDebit-totalCredit)<0.01;
+    
     j.lines.forEach((l,idx)=>{
       const acc=accountById(l.accountId);
-      html+=`<tr>${idx===0?`<td rowspan="${j.lines.length}">${new Date(j.date).toLocaleDateString()}</td><td rowspan="${j.lines.length}">${escapeHtml(j.ref||'')}</td><td rowspan="${j.lines.length}">${j.source}</td><td rowspan="${j.lines.length}">${escapeHtml(j.memo||'')}</td>`:''}<td>${acc?escapeHtml(acc.code+' '+acc.name):'—'}</td><td>${l.debit>0?fmt(l.debit):''}</td><td>${l.credit>0?fmt(l.credit):''}</td>${idx===0?`<td rowspan="${j.lines.length}"><span class="${balanced?'text-good':'text-warn'}">${balanced?'✓ Balanced':'✗ Out of Balance'}</span></td>`:''}</tr>`;
+      html+=`<tr>
+        ${idx===0 ? `<td rowspan="${j.lines.length}">${new Date(j.date).toLocaleDateString()}</td>
+                     <td rowspan="${j.lines.length}">${escapeHtml(j.ref||'')}</td>
+                     <td rowspan="${j.lines.length}">${j.source}</td>
+                     <td rowspan="${j.lines.length}">${escapeHtml(j.memo||'')}</td>` : ''}
+        <td>${acc?escapeHtml(acc.code+' '+acc.name):'—'}</td>
+        <td>${l.debit>0?fmt(l.debit):''}</td>
+        <td>${l.credit>0?fmt(l.credit):''}</td>
+        ${idx===0 ? `<td rowspan="${j.lines.length}"><span class="${balanced?'text-good':'text-warn'}">${balanced?'✓ Balanced':'✗ Out of Balance'}</span></td>
+                     <td rowspan="${j.lines.length}"><button class="small-btn danger" data-del-je="${j.id}">Delete</button></td>` : ''}
+      </tr>`;
     });
   });
+  
   html+='</tbody></table>';
   wrap.innerHTML=html;
+
+  wrap.querySelectorAll('[data-del-je]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const jeId = btn.dataset.delJe;
+      if (!confirm('Are you sure you want to delete this journal entry?')) return;
+      
+      const target = journal.find(j => j.id === jeId);
+      if (!target) return;
+
+      journal = journal.filter(j => j.id !== jeId);
+      audit('Journal entry deleted', target.ref || target.id, target.memo || '', 'deleted');
+      persistAll();
+      renderJournalTable();
+      showToast('Journal entry deleted.');
+    });
+  });
 }
 function exportJournalCsv(){
   const from=document.getElementById('jFrom').value, to=document.getElementById('jTo').value;
