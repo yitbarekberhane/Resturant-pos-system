@@ -896,18 +896,18 @@ async function postSaleJournalEntry(record, orderItems) {
     const linesToInsert = lines.map(line => ({
       ...line,
       business_id: currentBusinessId,
-      recordRef: record.receiptNo,
-      date: record.datetime,
+      recordref: record.receiptNo,
+      date: new Date(record.datetime).toISOString().slice(0, 10),
       source: 'sale',
-      sourceRecordId: record.id,
+      sourcerecordid: record.id,
       currency: settings.currency,
-      fxRate: 1,
+      fxrate: 1,
       lines: JSON.stringify(record.items),
-      createdBy: currentUser ? currentUser.name : 'system',
-      createdAt: new Date().toISOString()
+      createdby: currentUser ? currentUser.name : 'system',
+      createdat: new Date().toISOString()
     }));
 
-    const { error: saleError } = await sb.from('Accounting_ledger').insert(linesToInsert);
+    const { error: saleError } = await sb.from('accounting_ledger').insert(linesToInsert);
     if (saleError) console.error("Supabase Sales Ledger Insert Error:", saleError);
   }
 
@@ -930,18 +930,18 @@ async function postSaleJournalEntry(record, orderItems) {
     ].map(line => ({
       ...line,
       business_id: currentBusinessId,
-      recordRef: record.receiptNo,
-      date: record.datetime,
+      recordref: record.receiptNo,
+      date: new Date(record.datetime).toISOString().slice(0, 10),
       source: 'cogs',
-      sourceRecordId: record.id,
+      sourcerecordid: record.id,
       currency: settings.currency,
-      fxRate: 1,
+      fxrate: 1,
       lines: JSON.stringify(orderItems),
-      createdBy: currentUser ? currentUser.name : 'system',
-      createdAt: new Date().toISOString()
+      createdby: currentUser ? currentUser.name : 'system',
+      createdat: new Date().toISOString()
     }));
 
-    const { error: cogsError } = await sb.from('Accounting_ledger').insert(cogsLines);
+    const { error: cogsError } = await sb.from('accounting_ledger').insert(cogsLines);
     if (cogsError) console.error("Supabase COGS Ledger Insert Error:", cogsError);
   }
 } 
