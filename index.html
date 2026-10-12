@@ -641,7 +641,7 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
 /* ===================== SUPABASE (multi-tenant auth + sync) ===================== */
 const SUPABASE_URL = 'https://ofswdoczzjduwfvqybcg.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_R7w2j_N6nZOzC1mqInZ8zQ_lsWIbFB4';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentBusinessId = null;
 let authUser = null;
 
