@@ -884,6 +884,7 @@ async function postSaleJournalEntry(record, orderItems) {
     reconciled: false
   });
 
+  // 1. Insert Sales Journal Entries into Supabase
   if (lines.length > 0) {
     const linesToInsert = lines.map(line => ({
       ...line,
@@ -898,33 +899,41 @@ async function postSaleJournalEntry(record, orderItems) {
       createdAt: new Date().toISOString()
     }));
 
-    await sb.from('Accounting_ledger').insert(linesToInsert);
+    const { error: saleError } = await sb.from('Accounting_ledger').insert(linesToInsert);
+    if (saleError) throw saleError;
   }
 
+  // 2. Compute and Insert COGS Journal Entries into Supabase
   const cogs = computeOrderCOGS(orderItems);
   if (cogs > 0) {
-    journal.push({
-      id: uid('je'),
-      ref: record.receiptNo,
+    const cogsLines = [
+      {
+        accountId: 5110,
+        debit: cogs,
+        credit: 0,
+        reconciled: false
+      },
+      {
+        accountId: 1310,
+        debit: 0,
+        credit: cogs,
+        reconciled: false
+      }
+    ].map(line => ({
+      ...line,
+      recordRef: record.receiptNo,
       date: record.datetime,
       source: 'cogs',
       sourceRecordId: record.id,
       currency: settings.currency,
       fxRate: 1,
-      lines: [{
-        accountId: 5110,
-        debit: cogs,
-        credit: 0,
-        reconciled: false
-      }, {
-        accountId: 1310,
-        debit: 0,
-        credit: cogs,
-        reconciled: false
-      }],
+      lines: JSON.stringify(orderItems),
       createdBy: currentUser ? currentUser.name : 'system',
       createdAt: new Date().toISOString()
-    });
+    }));
+
+    const { error: cogsError } = await sb.from('Accounting_ledger').insert(cogsLines);
+    if (cogsError) throw cogsError;
   }
 }
  
