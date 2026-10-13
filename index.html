@@ -641,7 +641,7 @@ table.data-table tr:hover td{ background:rgba(255,255,255,0.02); }
 /* ===================== SUPABASE (multi-tenant auth + sync) ===================== */
 const SUPABASE_URL = 'https://ofswdoczzjduwfvqybcg.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_R7w2j_N6nZOzC1mqInZ8zQ_lsWIbFB4';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentBusinessId = null;
 let authUser = null;
 
@@ -798,153 +798,33 @@ function computeOrderCOGS(orderItems){
   });
   return round2(total);
 }
-function accountFor(method) {
-  if (method === 'cash') return '1010';
-  if (method === 'card') return '1020';
-  if (method === 'upi' || method === 'orange_money') return '1030';
-  return '1010';
-}
-
-async function postSaleJournalEntry(record, orderItems) {
-  const lines = [];
-
-  const addDebit = (accId, amt) => {
-    if (amt <= 0) return;
-    const ex = lines.find(l => l.accountId === accId && l.debit > 0);
-    if (ex) ex.debit = Math.round((Number(ex.debit) + Number(amt)) * 100) / 100;
-    else lines.push({
-      accountId: accId,
-      debit: amt,
-      credit: 0,
-      reconciled: false
-    });
-  };
-
-  const addCredit = (accId, amt) => {
-    if (amt <= 0) return;
-    const ex = lines.find(l => l.accountId === accId && l.credit > 0);
-    if (ex) ex.credit = Math.round((Number(ex.credit) + Number(amt)) * 100) / 100;
-    else lines.push({
-      accountId: accId,
-      debit: 0,
-      credit: amt,
-      reconciled: false
-    });
-  };
-
-  if (record.paymentMethod === 'split' && record.paymentDetail && record.paymentDetail.parts) {
-    record.paymentDetail.parts.forEach(p => addDebit(accountFor(p.method), Number(p.amount)));
+function postSaleJournalEntry(record, orderItems){
+  const lines=[];
+  const addDebit=(accId, amt)=>{ if(amt<=0) return; const ex=lines.find(l=>l.accountId===accId && l.debit>0); if(ex) ex.debit=round2(ex.debit+amt); else lines.push({accountId:accId, debit:round2(amt), credit:0, reconciled:false}); };
+  if(record.paymentMethod==='split' && record.paymentDetail && record.paymentDetail.parts && record.paymentDetail.parts.length){
+    record.paymentDetail.parts.forEach(p=>addDebit(paymentAccountFor(p.method), Number(p.amount)||0));
   } else {
-    addDebit(accountFor(record.paymentMethod), record.grandTotal);
+    addDebit(paymentAccountFor(record.paymentMethod), record.grandTotal);
   }
+  if(record.discountAmount>0) lines.push({accountId:'4900', debit:round2(record.discountAmount), credit:0, reconciled:false});
+  const {foodTotal, beverageTotal, billiardTotal} = splitRevenueByCategory(orderItems||[]);
+  if(foodTotal>0) lines.push({accountId:'4010', debit:0, credit:foodTotal, reconciled:false});
+  if(beverageTotal>0) lines.push({accountId:'4020', debit:0, credit:beverageTotal, reconciled:false});
+  if(billiardTotal>0) lines.push({accountId:'4040', debit:0, credit:billiardTotal, reconciled:false});
+  if(record.tax>0) lines.push({accountId:'2010', debit:0, credit:round2(record.tax), reconciled:false});
+  if(record.serviceCharge>0) lines.push({accountId:'4030', debit:0, credit:round2(record.serviceCharge), reconciled:false});
+  if(record.tip>0) lines.push({accountId:'2020', debit:0, credit:round2(record.tip), reconciled:false});
+  journal.push({ id:uid('je'), ref:record.receiptNo, date:record.datetime, memo:'Sale — Receipt '+record.receiptNo+' (Table '+record.tableNum+')',
+    source:'sale', sourceRecordId:record.id, currency:settings.currency, fxRate:1, lines, createdBy:(currentUser?currentUser.name:'system'), createdAt:Date.now() });
 
-  if (record.discountAmount > 0) lines.push({
-    accountId: 4900,
-    debit: Math.round(Number(record.discountAmount) * 100) / 100,
-    credit: 0,
-    reconciled: false
-  });
-
-  const foodTotal = record.total,
-    beverageTotal = record.bevTotal,
-    billiardTotal = record.billTotal;
-
-  if (foodTotal > 0) lines.push({
-    accountId: 4010,
-    debit: 0,
-    credit: foodTotal,
-    reconciled: false
-  });
-
-  if (beverageTotal > 0) lines.push({
-    accountId: 4020,
-    debit: 0,
-    credit: beverageTotal,
-    reconciled: false
-  });
-
-  if (billiardTotal > 0) lines.push({
-    accountId: 4040,
-    debit: 0,
-    credit: billiardTotal,
-    reconciled: false
-  });
-
-  if (record.tax > 0) lines.push({
-    accountId: 2010,
-    debit: 0,
-    credit: Math.round(Number(record.tax) * 100) / 100,
-    reconciled: false
-  });
-
-  if (record.serviceCharge > 0) lines.push({
-    accountId: 4030,
-    debit: 0,
-    credit: Math.round(Number(record.serviceCharge) * 100) / 100,
-    reconciled: false
-  });
-
-  if (record.tip > 0) lines.push({
-    accountId: 2020,
-    debit: 0,
-    credit: Math.round(Number(record.tip) * 100) / 100,
-    reconciled: false
-  });
-
-  // 1. Insert Sales Journal Entries into Supabase
-  if (lines.length > 0) {
-    const linesToInsert = lines.map(line => ({
-      ...line,
-      business_id: currentBusinessId,
-      recordref: record.receiptNo,
-      date: new Date(record.datetime).toISOString().slice(0, 10),
-      source: 'sale',
-      sourcerecordid: record.id,
-      currency: settings.currency,
-      fxrate: 1,
-      lines: JSON.stringify(record.items),
-      createdby: currentUser ? currentUser.name : 'system',
-      createdat: new Date().toISOString()
-    }));
-
-    const { error: saleError } = await sb.from('accounting_ledger').insert(linesToInsert);
-    if (saleError) console.error("Supabase Sales Ledger Insert Error:", saleError);
+  const cogs=computeOrderCOGS(orderItems||[]);
+  if(cogs>0){
+    journal.push({ id:uid('je'), ref:record.receiptNo, date:record.datetime, memo:'COGS — Receipt '+record.receiptNo+' (ingredient usage)',
+      source:'cogs', sourceRecordId:record.id, currency:settings.currency, fxRate:1,
+      lines:[{accountId:'5110', debit:cogs, credit:0, reconciled:false},{accountId:'1310', debit:0, credit:cogs, reconciled:false}],
+      createdBy:(currentUser?currentUser.name:'system'), createdAt:Date.now() });
   }
-
-  // 2. Compute and Insert COGS Journal Entries into Supabase
-  const cogs = computeOrderCOGS(orderItems);
-  if (cogs > 0) {
-    const cogsLines = [
-      {
-        accountId: 5110,
-        debit: cogs,
-        credit: 0,
-        reconciled: false
-      },
-      {
-        accountId: 1310,
-        debit: 0,
-        credit: cogs,
-        reconciled: false
-      }
-    ].map(line => ({
-      ...line,
-      business_id: currentBusinessId,
-      recordref: record.receiptNo,
-      date: new Date(record.datetime).toISOString().slice(0, 10),
-      source: 'cogs',
-      sourcerecordid: record.id,
-      currency: settings.currency,
-      fxrate: 1,
-      lines: JSON.stringify(orderItems),
-      createdby: currentUser ? currentUser.name : 'system',
-      createdat: new Date().toISOString()
-    }));
-
-    const { error: cogsError } = await sb.from('accounting_ledger').insert(cogsLines);
-    if (cogsError) console.error("Supabase COGS Ledger Insert Error:", cogsError);
-  }
-} 
+}
 function reverseSaleJournalEntry(record){
   const toReverse = journal.filter(j=>(j.source==='sale'||j.source==='cogs') && j.sourceRecordId===record.id);
   toReverse.forEach(original=>{
@@ -1036,6 +916,18 @@ async function syncTable(table, rows){
   const result = await sb.from(table).upsert(rows, {onConflict:'id'});
   checkSbResult(result, table);
 }
+// In-memory only on purpose: if the page reloads before the sync succeeds, the
+// cloud still holds the pre-join state, so those rows must NOT be deleted.
+let pendingOrderDeletes=[];
+async function processPendingOrderDeletes(){
+  if(!currentBusinessId || pendingOrderDeletes.length===0) return;
+  const ids=pendingOrderDeletes.slice();
+  pendingOrderDeletes=[];
+  for(const id of ids){
+    try{ checkSbResult(await sb.from('orders').delete().eq('business_id', currentBusinessId).eq('id', id), 'orders'); }
+    catch(e){ console.warn('Pending order delete failed', id, e); pendingOrderDeletes.push(id); }
+  }
+}
 async function deleteRowFromSupabase(table, id){
   if(!currentBusinessId) return;
   try{
@@ -1077,6 +969,7 @@ async function doSyncToSupabase(){
   try{
     await withTimeout(runFullSync(), SYNC_TIMEOUT_MS, 'Sync');
     lastSyncedAt=Date.now(); lastSyncError=null;
+    await processPendingOrderDeletes();
   }catch(e){
     console.warn('Supabase sync error', e);
     lastSyncError = (e && e.message) ? e.message : 'Unknown sync error';
@@ -1186,8 +1079,8 @@ let currentUser = null;
 
 /* ===================== PERMISSIONS ===================== */
 const PERMS = {
-  manager: new Set(['assignWaiter','reserveTable','configureTables','manageMenu','manageUsers','manageSettings','applyDiscount','processPayment','viewAllOrders','reprintAny','confirmHandover','openCashierShift','closeCashierShift','viewAudit','reopenTransaction','viewAllBalances','recordOtherCashMovement','systemReset','manageInventory']),
-  cashier: new Set(['assignWaiter','reserveTable','applyDiscount','processPayment','viewAllOrders','reprintAny','confirmHandover','openCashierShift','closeCashierShift','viewAllBalances','recordOtherCashMovement']),
+  manager: new Set(['assignWaiter','reserveTable','configureTables','manageMenu','manageUsers','manageSettings','applyDiscount','processPayment','viewAllOrders','reprintAny','confirmHandover','openCashierShift','closeCashierShift','viewAudit','reopenTransaction','viewAllBalances','recordOtherCashMovement','systemReset','manageInventory','transferTables']),
+  cashier: new Set(['transferTables','assignWaiter','reserveTable','applyDiscount','processPayment','viewAllOrders','reprintAny','confirmHandover','openCashierShift','closeCashierShift','viewAllBalances','recordOtherCashMovement']),
   waiter: new Set(['processPayment','recordHandover','openWaiterShift','closeWaiterShift','reprintOwn']),
   accountant: new Set(['viewAllOrders','viewAudit','viewFinance','manageAccounting'])
 };
@@ -1480,7 +1373,6 @@ function switchView(view){
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.toggle('active', t.dataset.view===view));
   if(view==='floor') renderFloor();
   if(view==='history') renderHistory();
-  if(view==='dashboard') renderDashboard();
   if(view==='cash') renderCash();
   if(view==='inventory'){ if(!requireOrToast('manageInventory')){ switchView('floor'); return; } renderInventory(); }
   if(view==='finance'){ if(!requireOrToast('viewFinance')){ switchView('floor'); return; } renderFinance(); }
@@ -1560,14 +1452,18 @@ function showTableContextMenu(e, t){
     else items+=`<button class="ctx-item" disabled>Table is occupied</button>`;
   }
   if(can('assignWaiter')) items+=`<button class="ctx-item" data-act="assign">Assign Waiter…</button>`;
+  if(can('transferTables') && !t.isWalkIn && status==='occupied'){
+    items+=`<button class="ctx-item" data-act="move-table">Move Table…</button>`;
+    items+=`<button class="ctx-item" data-act="join-table">Join Table…</button>`;
+  }
   if(can('configureTables')){
     const zone=t.zone==='outdoor'?'outdoor':'indoor';
-    items+=`<button class="ctx-item" data-act="toggle-zone">Move to ${zone==='outdoor'?'Indoor':'Outdoor'}</button>`;
+    items+=`<button class="ctx-item" data-act="toggle-zone">Change to ${zone==='outdoor'?'Indoor':'Outdoor'} Section</button>`;
   }
   items+=`<button class="ctx-item" data-act="open">Open Table</button>`;
   menuEl.innerHTML=items;
   menuEl.style.left=Math.min(e.clientX, window.innerWidth-210)+'px';
-  menuEl.style.top=Math.min(e.clientY, window.innerHeight-140)+'px';
+  menuEl.style.top=Math.min(e.clientY, window.innerHeight-230)+'px';
   menuEl.style.display='block';
   menuEl.querySelectorAll('[data-act]').forEach(btn=>{
     btn.onclick=()=>{
@@ -1575,6 +1471,8 @@ function showTableContextMenu(e, t){
       if(act==='reserve'){ if(requireOrToast('reserveTable')){ t.manualReserved=true; audit('Table reserved','table:'+t.num,'','reserved'); persistAll(); renderFloor(); showToast('Table T'+t.num+' marked reserved'); } }
       if(act==='clear-reserve'){ if(requireOrToast('reserveTable')){ t.manualReserved=false; audit('Reservation cleared','table:'+t.num,'reserved',''); persistAll(); renderFloor(); showToast('Reservation cleared'); } }
       if(act==='assign'){ if(requireOrToast('assignWaiter')) openAssignWaiterModal(t); }
+      if(act==='move-table'){ if(requireOrToast('transferTables')) openMoveTableModal(t); }
+      if(act==='join-table'){ if(requireOrToast('transferTables')) openJoinTableModal(t); }
       if(act==='toggle-zone'){
         if(requireOrToast('configureTables')){
           const prevZone=t.zone==='outdoor'?'outdoor':'indoor';
@@ -1610,6 +1508,104 @@ function openAssignWaiterModal(t){
       const newUser = val?userById(val):null;
       audit('Waiter assigned','table:'+t.num, prevUser?prevUser.name:'—', newUser?newUser.name:'Unassigned');
       persistAll(); renderFloor(); closeGeneric(); showToast('Waiter updated for T'+t.num);
+    }}
+  ]);
+}
+
+/* ---- Move / Join dining tables ---- */
+function tableOrdersTotal(tableId){
+  return getTableOrders(tableId).reduce((s,o)=>s+calcTotals(o).grandTotal,0);
+}
+function openMoveTableModal(src){
+  const srcOrders=getTableOrders(src.id);
+  if(srcOrders.length===0){ showToast('T'+src.num+' has no open orders to move.'); return; }
+  const dests=tables.filter(x=>x.id!==src.id && !x.isWalkIn && getTableStatus(x)==='available').sort((a,b)=>a.num-b.num);
+  if(dests.length===0){ showToast('No available tables to move to.'); return; }
+  const body=`
+    <p class="hint">Move everything on <b>T${src.num}</b> (${srcOrders.length} check${srcOrders.length!==1?'s':''}, ${fmt(tableOrdersTotal(src.id))}) to another table. Only tables that are currently available are listed. T${src.num} is freed up afterwards, and the kitchen gets a notice if any items were already sent.</p>
+    <div class="form-field full" style="margin-top:8px;"><label>Destination Table</label>
+      <select id="moveTblDest">${dests.map(d=>`<option value="${d.id}">T${d.num} — seats ${d.capacity} · ${d.zone==='outdoor'?'outdoor':'indoor'}</option>`).join('')}</select>
+    </div>`;
+  openGeneric('Move Table — T'+src.num, body, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Move', variant:'btn-amber', handler:()=>{
+      const dest=tableById(document.getElementById('moveTblDest').value);
+      if(!dest || getTableStatus(dest)!=='available'){ showToast('That table is no longer available — pick another.'); return; }
+      const moving=getTableOrders(src.id);
+      if(moving.length===0){ showToast('Nothing left to move on T'+src.num+'.'); closeGeneric(); renderFloor(); return; }
+      const destWaiter = dest.waiterId ? userById(dest.waiterId) : null;
+      const prevWaiters = [...new Set(moving.map(o=>o.waiterName||'—'))].join(', ');
+      const anySent = moving.some(o=>o.items.some(it=>it.sentToKitchen));
+      moving.forEach(o=>{
+        o.tableId=dest.id;
+        if(destWaiter){ o.waiterId=destWaiter.id; o.waiterName=destWaiter.name; }
+      });
+      audit('Table moved','table:'+src.num,'T'+src.num,'T'+dest.num+' — '+moving.length+' check(s)'+(destWaiter?' (waiter: '+prevWaiters+' → '+destWaiter.name+')':''));
+      persistAll(); closeGeneric(); renderFloor();
+      showToast('T'+src.num+' moved to T'+dest.num+'.');
+      if(anySent) printKitchenUpdateTicket(moving[0], 'TABLE MOVED: T'+src.num+' → T'+dest.num, currentUser.name);
+    }}
+  ]);
+}
+function openJoinTableModal(primary){
+  const primaryOrders=getTableOrders(primary.id);
+  if(primaryOrders.length===0){ showToast('T'+primary.num+' has no open orders to join into.'); return; }
+  const candidates=tables.filter(x=>x.id!==primary.id && !x.isWalkIn && getTableStatus(x)==='occupied').sort((a,b)=>a.num-b.num);
+  if(candidates.length===0){ showToast('No other occupied tables to join.'); return; }
+  const body=`
+    <p class="hint">Join another occupied table into <b>T${primary.num}</b>. The other table is freed up afterwards, and the kitchen gets a notice if any items were already sent.</p>
+    <div class="form-field full" style="margin-top:8px;"><label>Table to Merge In</label>
+      <select id="joinTblSrc">${candidates.map(c=>{ const n=getTableOrders(c.id).length; return `<option value="${c.id}">T${c.num} — ${n} check${n!==1?'s':''}, ${fmt(tableOrdersTotal(c.id))}</option>`; }).join('')}</select>
+    </div>
+    <div class="form-field full" style="margin-top:8px;"><label>How should the bills be combined?</label>
+      <select id="joinTblMode">
+        <option value="single">One combined check (one bill)</option>
+        <option value="separate">Keep separate checks on T${primary.num} (pay separately)</option>
+      </select>
+    </div>
+    <p class="hint" style="margin-top:8px;">When combining into one check, items already sent to the kitchen stay locked, tips are added together, and if both bills carry a discount the primary check's discount is kept.</p>`;
+  openGeneric('Join Table — into T'+primary.num, body, [
+    {label:'Cancel', variant:'btn-outline-dark', handler:closeGeneric},
+    {label:'Join', variant:'btn-amber', handler:async ()=>{
+      const sec=tableById(document.getElementById('joinTblSrc').value);
+      const mode=document.getElementById('joinTblMode').value;
+      const secOrders = sec ? getTableOrders(sec.id) : [];
+      const pOrders = getTableOrders(primary.id);
+      if(!sec || secOrders.length===0 || pOrders.length===0){ showToast('One of the tables no longer has open orders.'); closeGeneric(); renderFloor(); return; }
+      const anySent = secOrders.some(o=>o.items.some(it=>it.sentToKitchen)) || pOrders.some(o=>o.items.some(it=>it.sentToKitchen));
+      const pWaiter = primary.waiterId ? userById(primary.waiterId) : null;
+      const removedIds=[];
+      let target=pOrders[0];
+      let droppedDiscount=false;
+      if(mode==='separate'){
+        secOrders.forEach(o=>{ o.tableId=primary.id; if(pWaiter){ o.waiterId=pWaiter.id; o.waiterName=pWaiter.name; } });
+      } else {
+        [...pOrders.slice(1), ...secOrders].forEach(o=>{
+          o.items.forEach(it=>target.items.push(it));
+          target.tip=(Number(target.tip)||0)+(Number(o.tip)||0);
+          const tDisc=Number(target.discount&&target.discount.value)||0;
+          const oDisc=Number(o.discount&&o.discount.value)||0;
+          if(tDisc<=0 && oDisc>0) target.discount={...o.discount};
+          else if(tDisc>0 && oDisc>0) droppedDiscount=true;
+          removedIds.push(o.id);
+        });
+        activeOrders=activeOrders.filter(o=>!removedIds.includes(o.id));
+      }
+      audit('Tables joined','table:'+primary.num,'T'+sec.num,'merged into T'+primary.num+' — '+(mode==='single'?'one combined check':'separate checks')+(droppedDiscount?' (secondary discount dropped)':''));
+      persistAll(); closeGeneric(); renderFloor();
+      showToast('T'+sec.num+' joined into T'+primary.num+'.');
+      if(anySent) printKitchenUpdateTicket(target, 'TABLES JOINED: T'+sec.num+' → T'+primary.num, currentUser.name);
+      if(removedIds.length){
+        // Sync is upsert-only. The merged-away checks' cloud rows may only be deleted
+        // AFTER the combined check has been saved, and never by a sync that began
+        // before the join — otherwise a reload could lose items. So: wait out any
+        // in-flight sync, queue the deletes, then run a fresh sync (which processes
+        // the queue only once it succeeds).
+        while(syncInProgress) await new Promise(r=>setTimeout(r,100));
+        pendingOrderDeletes.push(...removedIds);
+        await flushSupabaseSync();
+        if(lastSyncError) showToast('Joined on this device, but the cloud save failed — stay on this page until it syncs (Settings → Retry Now).');
+      }
     }}
   ]);
 }
@@ -2353,7 +2349,7 @@ document.getElementById('btnConfirmPay').addEventListener('click', async ()=>{
     paymentMethod:payMethod, paymentDetail, datetime:Date.now(), voided:false
   };
   history.push(record);
-  await postSaleJournalEntry(record, order.items);
+  postSaleJournalEntry(record, order.items);
   audit('Payment recorded', record.receiptNo, '', payMethod+' '+fmt(totals.grandTotal));
   deductStockForOrderItems(order.items);
 
@@ -3353,48 +3349,18 @@ function renderJournalTable(){
   const from=document.getElementById('jFrom').value, to=document.getElementById('jTo').value;
   const rows=journalInRange(from,to);
   if(rows.length===0){ wrap.innerHTML='<div class="empty-note">No journal entries in this range.</div>'; return; }
-  
-  let html='<table class="data-table"><thead><tr><th>Date</th><th>Ref</th><th>Source</th><th>Memo</th><th>Account</th><th>Debit</th><th>Credit</th><th>Balanced</th><th>Actions</th></tr></thead><tbody>';
-  
+  let html='<table class="data-table"><thead><tr><th>Date</th><th>Ref</th><th>Source</th><th>Memo</th><th>Account</th><th>Debit</th><th>Credit</th><th>Balanced</th></tr></thead><tbody>';
   rows.forEach(j=>{
     const totalDebit=round2(j.lines.reduce((s,l)=>s+l.debit,0));
     const totalCredit=round2(j.lines.reduce((s,l)=>s+l.credit,0));
     const balanced=Math.abs(totalDebit-totalCredit)<0.01;
-    
     j.lines.forEach((l,idx)=>{
       const acc=accountById(l.accountId);
-      html+=`<tr>
-        ${idx===0 ? `<td rowspan="${j.lines.length}">${new Date(j.date).toLocaleDateString()}</td>
-                     <td rowspan="${j.lines.length}">${escapeHtml(j.ref||'')}</td>
-                     <td rowspan="${j.lines.length}">${j.source}</td>
-                     <td rowspan="${j.lines.length}">${escapeHtml(j.memo||'')}</td>` : ''}
-        <td>${acc?escapeHtml(acc.code+' '+acc.name):'—'}</td>
-        <td>${l.debit>0?fmt(l.debit):''}</td>
-        <td>${l.credit>0?fmt(l.credit):''}</td>
-        ${idx===0 ? `<td rowspan="${j.lines.length}"><span class="${balanced?'text-good':'text-warn'}">${balanced?'✓ Balanced':'✗ Out of Balance'}</span></td>
-                     <td rowspan="${j.lines.length}"><button class="small-btn danger" data-del-je="${j.id}">Delete</button></td>` : ''}
-      </tr>`;
+      html+=`<tr>${idx===0?`<td rowspan="${j.lines.length}">${new Date(j.date).toLocaleDateString()}</td><td rowspan="${j.lines.length}">${escapeHtml(j.ref||'')}</td><td rowspan="${j.lines.length}">${j.source}</td><td rowspan="${j.lines.length}">${escapeHtml(j.memo||'')}</td>`:''}<td>${acc?escapeHtml(acc.code+' '+acc.name):'—'}</td><td>${l.debit>0?fmt(l.debit):''}</td><td>${l.credit>0?fmt(l.credit):''}</td>${idx===0?`<td rowspan="${j.lines.length}"><span class="${balanced?'text-good':'text-warn'}">${balanced?'✓ Balanced':'✗ Out of Balance'}</span></td>`:''}</tr>`;
     });
   });
-  
   html+='</tbody></table>';
   wrap.innerHTML=html;
-
-  wrap.querySelectorAll('[data-del-je]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const jeId = btn.dataset.delJe;
-      if (!confirm('Are you sure you want to delete this journal entry?')) return;
-      
-      const target = journal.find(j => j.id === jeId);
-      if (!target) return;
-
-      journal = journal.filter(j => j.id !== jeId);
-      audit('Journal entry deleted', target.ref || target.id, target.memo || '', 'deleted');
-      persistAll();
-      renderJournalTable();
-      showToast('Journal entry deleted.');
-    });
-  });
 }
 function exportJournalCsv(){
   const from=document.getElementById('jFrom').value, to=document.getElementById('jTo').value;
