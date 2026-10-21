@@ -799,6 +799,8 @@ function computeOrderCOGS(orderItems){
   return round2(total);
 }
 function postSaleJournalEntry(record, orderItems){
+  // Idempotent: never post the same sale twice (e.g. a retried checkout).
+  if(journal.some(j=>j.source==='sale' && j.sourceRecordId===record.id)) return null;
   const lines=[];
   const addDebit=(accId, amt)=>{ if(amt<=0) return; const ex=lines.find(l=>l.accountId===accId && l.debit>0); if(ex) ex.debit=round2(ex.debit+amt); else lines.push({accountId:accId, debit:round2(amt), credit:0, reconciled:false}); };
   if(record.paymentMethod==='split' && record.paymentDetail && record.paymentDetail.parts && record.paymentDetail.parts.length){
@@ -814,8 +816,22 @@ function postSaleJournalEntry(record, orderItems){
   if(record.tax>0) lines.push({accountId:'2010', debit:0, credit:round2(record.tax), reconciled:false});
   if(record.serviceCharge>0) lines.push({accountId:'4030', debit:0, credit:round2(record.serviceCharge), reconciled:false});
   if(record.tip>0) lines.push({accountId:'2020', debit:0, credit:round2(record.tip), reconciled:false});
-  journal.push({ id:uid('je'), ref:record.receiptNo, date:record.datetime, memo:'Sale — Receipt '+record.receiptNo+' (Table '+record.tableNum+')',
-    source:'sale', sourceRecordId:record.id, currency:settings.currency, fxRate:1, lines, createdBy:(currentUser?currentUser.name:'system'), createdAt:Date.now() });
+  // Every line is rounded on its own, so the entry can drift by a cent or two. Fold any
+  // tiny drift into the largest credit line so debits always equal credits; anything
+  // bigger than that is flagged instead of silently posted as if it were fine.
+  const sumDebit=round2(lines.reduce((s,l)=>s+l.debit,0));
+  const sumCredit=round2(lines.reduce((s,l)=>s+l.credit,0));
+  const drift=round2(sumDebit-sumCredit);
+  let unbalanced=false;
+  if(Math.abs(drift)>=0.005){
+    const biggest=lines.filter(l=>l.credit>0).sort((a,b)=>b.credit-a.credit)[0];
+    if(Math.abs(drift)<=0.05 && biggest){ biggest.credit=round2(biggest.credit+drift); }
+    else { unbalanced=true; audit('Journal entry out of balance', record.receiptNo, fmt(sumDebit), 'credits '+fmt(sumCredit)); }
+  }
+  const saleEntry={ id:uid('je'), ref:record.receiptNo, date:record.datetime, memo:'Sale — Receipt '+record.receiptNo+' (Table '+record.tableNum+')',
+    source:'sale', sourceRecordId:record.id, currency:settings.currency, fxRate:1, lines, createdBy:(currentUser?currentUser.name:'system'), createdAt:Date.now() };
+  if(unbalanced) saleEntry.unbalanced=true;
+  journal.push(saleEntry);
 
   const cogs=computeOrderCOGS(orderItems||[]);
   if(cogs>0){
@@ -824,6 +840,7 @@ function postSaleJournalEntry(record, orderItems){
       lines:[{accountId:'5110', debit:cogs, credit:0, reconciled:false},{accountId:'1310', debit:0, credit:cogs, reconciled:false}],
       createdBy:(currentUser?currentUser.name:'system'), createdAt:Date.now() });
   }
+  return saleEntry;
 }
 function reverseSaleJournalEntry(record){
   const toReverse = journal.filter(j=>(j.source==='sale'||j.source==='cogs') && j.sourceRecordId===record.id);
@@ -916,6 +933,48 @@ async function syncTable(table, rows){
   const result = await sb.from(table).upsert(rows, {onConflict:'id'});
   checkSbResult(result, table);
 }
+/* ---- Accounting ledger sync (journal entries -> Supabase accounting_ledger) ---- */
+// id -> signature of the entry as last confirmed in the cloud. Only entries that are
+// new or changed (e.g. a bank-reconciliation tick) get uploaded, so sync stays fast
+// as the journal grows.
+const journalSyncSig = {};
+let lastFailedSyncSteps = [];
+function journalSig(j){
+  return (j.lines||[]).map(l=>l.accountId+':'+l.debit+':'+l.credit+':'+(l.reconciled?1:0)).join('|');
+}
+function ledgerRowFor(j){
+  const d=new Date(j.date);
+  return {
+    id:j.id, business_id:currentBusinessId,
+    entry_date: isNaN(d.getTime()) ? null : d.toISOString(),
+    ref:String(j.ref==null?'':j.ref), memo:j.memo||'', source:j.source||'',
+    source_record_id:j.sourceRecordId||null,
+    total_debit:round2((j.lines||[]).reduce((s,l)=>s+(Number(l.debit)||0),0)),
+    total_credit:round2((j.lines||[]).reduce((s,l)=>s+(Number(l.credit)||0),0)),
+    meta:j
+  };
+}
+async function syncLedger(){
+  const dirty=journal.filter(j=>j && j.id && journalSyncSig[j.id]!==journalSig(j));
+  for(let i=0;i<dirty.length;i+=200){
+    const chunk=dirty.slice(i,i+200);
+    checkSbResult(await sb.from('accounting_ledger').upsert(chunk.map(ledgerRowFor), {onConflict:'id'}), 'accounting_ledger');
+    chunk.forEach(j=>{ journalSyncSig[j.id]=journalSig(j); });
+  }
+}
+// Supabase returns at most 1000 rows per request — page through so nothing is cut off.
+async function fetchAllRows(table){
+  const pageSize=1000; let from=0; let all=[];
+  while(true){
+    const res=await sb.from(table).select('*').eq('business_id', currentBusinessId).order('id',{ascending:true}).range(from, from+pageSize-1);
+    if(res.error) return { data:null, error:res.error };
+    const rows=res.data||[];
+    all=all.concat(rows);
+    if(rows.length<pageSize) break;
+    from+=pageSize;
+  }
+  return { data:all, error:null };
+}
 // In-memory only on purpose: if the page reloads before the sync succeeds, the
 // cloud still holds the pre-join state, so those rows must NOT be deleted.
 let pendingOrderDeletes=[];
@@ -937,7 +996,8 @@ async function deleteRowFromSupabase(table, id){
 }
 async function runFullSync(){
   const errors=[];
-  const attempt=async (label, fn)=>{ try{ await fn(); }catch(e){ errors.push((e&&e.message)||(label+' failed')); console.warn('Sync step failed:', label, e); } };
+  const failedLabels=[];
+  const attempt=async (label, fn)=>{ try{ await fn(); }catch(e){ errors.push((e&&e.message)||(label+' failed')); failedLabels.push(label); console.warn('Sync step failed:', label, e); } };
 
   await attempt('businesses', async ()=>{
     checkSbResult(await sb.from('businesses').update({ name:settings.restaurantName, settings_json:settings }).eq('id', currentBusinessId), 'businesses');
@@ -956,9 +1016,11 @@ async function runFullSync(){
     ];
     return syncTable('orders', orderRows);
   });
+  await attempt('accounting_ledger', syncLedger);
   await attempt('shift_handovers', ()=>syncTable('shift_handovers', handovers.map(h=>({id:h.id, business_id:currentBusinessId, from_staff_id:h.waiterId||null, to_staff_id:h.confirmedBy?null:null, shift_type:'waiter', cash_amount:h.amount||0, meta:h}))));
   await attempt('audit_log', ()=>syncTable('audit_log', auditLog.map(a=>({id:a.id, business_id:currentBusinessId, actor:a.user, action:a.action, target:a.ref, from_value:a.prevValue, to_value:a.newValue, meta:a}))));
 
+  lastFailedSyncSteps=failedLabels;
   if(errors.length) throw new Error(errors.join(' | '));
 }
 async function doSyncToSupabase(){
@@ -1003,19 +1065,34 @@ async function loadBusinessData(){
   settings = Object.assign({}, DEFAULT_SETTINGS, biz.settings_json||{});
   if(biz.name) settings.restaurantName = biz.name;
 
-  const [staffRes, tablesRes, menuRes, ordersRes, handoversRes, auditRes, ingredientsRes] = await Promise.all([
+  const [staffRes, tablesRes, menuRes, ordersRes, handoversRes, auditRes, ingredientsRes, ledgerRes] = await Promise.all([
     sb.from('staff_users').select('*').eq('business_id', currentBusinessId),
     sb.from('restaurant_tables').select('*').eq('business_id', currentBusinessId),
     sb.from('menu_items').select('*').eq('business_id', currentBusinessId),
-    sb.from('orders').select('*').eq('business_id', currentBusinessId),
+    fetchAllRows('orders'),
     sb.from('shift_handovers').select('*').eq('business_id', currentBusinessId),
-    sb.from('audit_log').select('*').eq('business_id', currentBusinessId),
-    sb.from('ingredients').select('*').eq('business_id', currentBusinessId)
+    fetchAllRows('audit_log'),
+    sb.from('ingredients').select('*').eq('business_id', currentBusinessId),
+    fetchAllRows('accounting_ledger')
   ]);
-  [['staff_users',staffRes],['restaurant_tables',tablesRes],['menu_items',menuRes],['orders',ordersRes],['shift_handovers',handoversRes],['audit_log',auditRes],['ingredients',ingredientsRes]]
+  [['staff_users',staffRes],['restaurant_tables',tablesRes],['menu_items',menuRes],['orders',ordersRes],['shift_handovers',handoversRes],['audit_log',auditRes],['ingredients',ingredientsRes],['accounting_ledger',ledgerRes]]
     .forEach(([label,res])=>{ if(res.error) console.warn('Fetch failed for', label, res.error); });
-  const firstFetchError = [staffRes,tablesRes,menuRes,ordersRes,handoversRes,auditRes,ingredientsRes].find(r=>r.error);
+  const firstFetchError = [staffRes,tablesRes,menuRes,ordersRes,handoversRes,auditRes,ingredientsRes,ledgerRes].find(r=>r.error);
   if(firstFetchError){ lastSyncError='Initial load — '+firstFetchError.error.message; }
+
+  // Journal: the cloud ledger is the source of truth. Entries that exist only in this
+  // browser (not uploaded yet) are kept and uploaded on the next sync — but only if this
+  // browser's local journal belongs to the same business, so one restaurant's books can
+  // never bleed into another's on a shared device.
+  if(!ledgerRes.error){
+    const localBiz=load('posv2_journalBusinessId', null);
+    const localJournal=(localBiz===null || localBiz===currentBusinessId) ? journal : [];
+    const remoteEntries=(ledgerRes.data||[]).map(r=>r.meta).filter(j=>j && j.id && Array.isArray(j.lines));
+    const remoteIds=new Set(remoteEntries.map(j=>j.id));
+    remoteEntries.forEach(j=>{ journalSyncSig[j.id]=journalSig(j); });
+    journal=remoteEntries.concat(localJournal.filter(j=>j && !remoteIds.has(j.id))).sort((a,b)=>(a.date||0)-(b.date||0));
+    save('posv2_journalBusinessId', currentBusinessId);
+  }
 
   const isFirstLoad = !(staffRes.data&&staffRes.data.length) && !(tablesRes.data&&tablesRes.data.length) && !(menuRes.data&&menuRes.data.length);
 
@@ -1516,7 +1593,7 @@ function openAssignWaiterModal(t){
 function tableOrdersTotal(tableId){
   return getTableOrders(tableId).reduce((s,o)=>s+calcTotals(o).grandTotal,0);
 }
-function openMoveTableModal(src){
+function openMoveTableModal(src, onDone){
   const srcOrders=getTableOrders(src.id);
   if(srcOrders.length===0){ showToast('T'+src.num+' has no open orders to move.'); return; }
   const dests=tables.filter(x=>x.id!==src.id && !x.isWalkIn && getTableStatus(x)==='available').sort((a,b)=>a.num-b.num);
@@ -1543,11 +1620,12 @@ function openMoveTableModal(src){
       audit('Table moved','table:'+src.num,'T'+src.num,'T'+dest.num+' — '+moving.length+' check(s)'+(destWaiter?' (waiter: '+prevWaiters+' → '+destWaiter.name+')':''));
       persistAll(); closeGeneric(); renderFloor();
       showToast('T'+src.num+' moved to T'+dest.num+'.');
+      if(typeof onDone==='function') onDone();
       if(anySent) printKitchenUpdateTicket(moving[0], 'TABLE MOVED: T'+src.num+' → T'+dest.num, currentUser.name);
     }}
   ]);
 }
-function openJoinTableModal(primary){
+function openJoinTableModal(primary, onDone){
   const primaryOrders=getTableOrders(primary.id);
   if(primaryOrders.length===0){ showToast('T'+primary.num+' has no open orders to join into.'); return; }
   const candidates=tables.filter(x=>x.id!==primary.id && !x.isWalkIn && getTableStatus(x)==='occupied').sort((a,b)=>a.num-b.num);
@@ -1594,6 +1672,7 @@ function openJoinTableModal(primary){
       audit('Tables joined','table:'+primary.num,'T'+sec.num,'merged into T'+primary.num+' — '+(mode==='single'?'one combined check':'separate checks')+(droppedDiscount?' (secondary discount dropped)':''));
       persistAll(); closeGeneric(); renderFloor();
       showToast('T'+sec.num+' joined into T'+primary.num+'.');
+      if(typeof onDone==='function') onDone();
       if(anySent) printKitchenUpdateTicket(target, 'TABLES JOINED: T'+sec.num+' → T'+primary.num, currentUser.name);
       if(removedIds.length){
         // Sync is upsert-only. The merged-away checks' cloud rows may only be deleted
@@ -1869,9 +1948,12 @@ function renderOrderView(){
     <button class="back-btn" id="btnBackFloor">&larr; Floor</button>
     <div class="ot-tinfo"><div class="n">Table ${t.num}</div><div class="c">Seats ${t.capacity}</div></div>
     <div class="ot-waiter">Waiter: <strong>${w?escapeHtml(w.name):'Unassigned'}</strong></div>
+    ${(can('transferTables') && !t.isWalkIn)?`<button class="back-btn" id="btnMoveTableHere">Move Table</button><button class="back-btn" id="btnJoinTableHere">Join Table</button>`:''}
     <div class="checks-strip" id="checksStrip"></div>
   `;
   document.getElementById('btnBackFloor').onclick=()=>{ switchView('floor'); };
+  const mvBtn=document.getElementById('btnMoveTableHere'); if(mvBtn) mvBtn.onclick=()=>openMoveTableModal(t, ()=>switchView('floor'));
+  const jnBtn=document.getElementById('btnJoinTableHere'); if(jnBtn) jnBtn.onclick=()=>openJoinTableModal(t, ()=>switchView('floor'));
 
   const checksStrip=document.getElementById('checksStrip');
   checksStrip.innerHTML = orders.map((o,idx)=>`<button class="check-tab ${o.id===currentOrderId?'active':''}" data-oid="${o.id}">Check ${idx+1}</button>`).join('') + `<button class="check-add" id="btnAddCheck" title="New check (split by item)">+</button>`;
@@ -2349,7 +2431,14 @@ document.getElementById('btnConfirmPay').addEventListener('click', async ()=>{
     paymentMethod:payMethod, paymentDetail, datetime:Date.now(), voided:false
   };
   history.push(record);
-  postSaleJournalEntry(record, order.items);
+  let journalPostFailed=false;
+  try{ postSaleJournalEntry(record, order.items); }
+  catch(err){
+    // The sale must still complete (the customer has paid) — but never lose track of the gap.
+    journalPostFailed=true;
+    console.error('Journal posting failed for', record.receiptNo, err);
+    audit('Journal posting FAILED', record.receiptNo, '', String(err&&err.message||err));
+  }
   audit('Payment recorded', record.receiptNo, '', payMethod+' '+fmt(totals.grandTotal));
   deductStockForOrderItems(order.items);
 
@@ -2393,8 +2482,14 @@ document.getElementById('btnConfirmPay').addEventListener('click', async ()=>{
   if(remaining.length>0 && currentView==='order'){ currentOrderId=remaining[0].id; renderOrderView(); }
   else { switchView('floor'); }
   openReceiptFromRecord(record);
-  if(lastSyncError){ showToast('Payment recorded — but cloud save failed ('+lastSyncError+'). It will retry automatically; avoid closing this tab until it succeeds.'); }
-  else { showToast('Payment confirmed and saved to Supabase — table freed once fully paid'); }
+  if(journalPostFailed){ showToast('Payment recorded — but its journal entry could not be generated. Tell the accountant: receipt '+record.receiptNo+' needs a manual entry.'); }
+  else if(lastSyncError){
+    const ledgerFailed=lastFailedSyncSteps.includes('accounting_ledger');
+    showToast(ledgerFailed
+      ? 'Payment recorded — but its journal entries have not reached the cloud ledger yet ('+lastSyncError+'). They will retry automatically; avoid closing this tab until it succeeds.'
+      : 'Payment recorded — but cloud save failed ('+lastSyncError+'). It will retry automatically; avoid closing this tab until it succeeds.');
+  }
+  else { showToast('Payment confirmed — sale and journal entries saved to Supabase'); }
 });
 
 /* ===================== RECEIPT ===================== */
